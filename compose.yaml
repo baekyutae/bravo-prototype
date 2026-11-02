@@ -108,8 +108,11 @@ services:
     build: ./platform
     depends_on: [app, writer]
     env_file: .env
+    environment:
+      WORKLOAD_DIR: /workload/app
     volumes:
       - pgbouncer-target:/pgbouncer-target
+      - ./app:/workload/app:ro   # ANALYZE가 읽는 이전 대상 앱 소스
     ports: ["8000:8000"]
 
 volumes:

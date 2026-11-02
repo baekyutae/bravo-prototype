@@ -54,6 +54,12 @@
   .log .transition_rejected, .log .error { color: var(--bad); }
   pre { margin: 0; font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 360px; overflow: auto; }
   .placeholder { color: var(--muted); font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; }
+  .mono { font-family: ui-monospace, monospace; font-size: 12px; }
+  .verdict { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+  .sub { color: var(--muted); font-size: 12px; margin: 8px 0 4px; }
 </style>
 </head>
 <body>
@@ -80,7 +86,8 @@
     </div>
 
     <div class="grid">
-      <div class="card"><h2>원본 대조 게이트</h2><div id="gate" class="placeholder">3단계에서 연결</div></div>
+      <div class="card"><h2>출발지 수집 · 의존성</h2><div id="inventory" class="placeholder">계획을 만들면 표시</div></div>
+      <div class="card"><h2>원본 대조 게이트</h2><div id="gate" class="placeholder">게이트 실행 전</div></div>
       <div class="card"><h2>AI 제안서 · 검증</h2><div id="proposal" class="placeholder">4단계에서 연결</div></div>
       <div class="card"><h2>컷오버 · 영수증</h2><div id="cutover" class="placeholder">5단계에서 연결</div></div>
       <div class="card"><h2>단계 결과 (원본 데이터)</h2><pre id="data"></pre></div>
@@ -158,6 +165,35 @@ function render() {
   $("planId").textContent = plan ? `${plan.id} · ${plan.state}` : "계획 없음";
   renderRail(); renderActions();
   $("data").textContent = plan ? JSON.stringify(plan.data, null, 2) : "";
+  renderInventory(); renderGate();
+}
+
+const badge = (v) => `<span class="badge ${v === "PASS" ? "b-pass" : "b-block"}">${v}</span>`;
+
+function renderInventory() {
+  const c = plan?.data.collect, a = plan?.data.analyze, el = $("inventory");
+  if (!c) { el.className = "placeholder"; el.textContent = "계획을 만들면 표시"; return; }
+  el.className = "";
+  const ids = Object.entries(c.identities).map(([k, v]) => `<div class="mono">${k}: ${v.join(", ")}</div>`).join("");
+  const sim = c.simulated_inventory.map(i => `${i.kind} <span class="mono">${i.id}</span>`).join(" · ");
+  const deps = (a?.dependencies || []).map(d =>
+    `<tr><td>${d.grade}</td><td class="mono">${d.file}:${d.line}</td><td>${escape(d.desc)}</td></tr>`).join("");
+  el.innerHTML = `
+    <div class="sub">출발지 버킷 <span class="mono">${c.bucket}</span> 접근 주체</div>${ids}
+    <div class="sub">출발지 DB: messages ${c.messages_rows}행 · 스키마 <span class="mono">${c.schema_hash.slice(0, 8)}</span></div>
+    <div class="sub"><span class="badge b-sim">SIMULATED</span>${sim}</div>
+    <div class="sub">의존성 (정적 탐지)</div>
+    <table><tr><th>등급</th><th>위치</th><th>내용</th></tr>${deps}</table>`;
+}
+
+function renderGate() {
+  const g = plan?.data.gate, el = $("gate");
+  if (!g) { el.className = "placeholder"; el.textContent = "게이트 실행 전"; return; }
+  el.className = "";
+  const rows = g.questions.map(q => `<tr><td class="mono">${q.id}</td><td>${escape(q.question)}</td>
+    <td>${escape(q.source)}</td><td>${escape(q.target)}</td><td>${badge(q.verdict)}</td></tr>`).join("");
+  el.innerHTML = `<div class="verdict">${badge(g.verdict)} <span class="mono">${g.gate_id}</span></div>
+    <table><tr><th></th><th>질문</th><th>원본 (AWS)</th><th>대상 (온프렘)</th><th>판정</th></tr>${rows}</table>`;
 }
 
 function log(e) {
