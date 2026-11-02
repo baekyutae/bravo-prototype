@@ -30,12 +30,12 @@ services:
       - ./infra/postgres/00-roles.sql:/docker-entrypoint-initdb.d/00-roles.sql:ro
       - ./infra/postgres/10-schema.sql:/docker-entrypoint-initdb.d/10-schema.sql:ro
       - ./infra/postgres/20-seed-src.sql:/docker-entrypoint-initdb.d/20-seed-src.sql:ro
-    ports: ["15432:5432"]
+    ports: ["127.0.0.1:15432:5432"]
 
   s3-src:
     <<: *s3
     hostname: s3-src
-    ports: ["18333:8333"]
+    ports: ["127.0.0.1:18333:8333"]
 
   # ---- 목적지 (온프렘 역할) ----
   pg-dst:
@@ -45,12 +45,12 @@ services:
     volumes:
       - ./infra/postgres/00-roles.sql:/docker-entrypoint-initdb.d/00-roles.sql:ro
       - ./infra/postgres/10-schema.sql:/docker-entrypoint-initdb.d/10-schema.sql:ro
-    ports: ["25432:5432"]
+    ports: ["127.0.0.1:25432:5432"]
 
   s3-dst:
     <<: *s3
     hostname: s3-dst
-    ports: ["28333:8333"]
+    ports: ["127.0.0.1:28333:8333"]
 
   # ---- 앱의 DB 진입점 ----
   pgbouncer:
@@ -61,7 +61,7 @@ services:
       - ./infra/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
       - ./infra/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
       - pgbouncer-target:/etc/pgbouncer/target
-    ports: ["6432:6432"]
+    ports: ["127.0.0.1:6432:6432"]
 
   # ---- 사전 준비 (한 번 실행 후 종료) ----
   db-bootstrap:
@@ -95,13 +95,13 @@ services:
       S3_ENDPOINT: http://s3-src:8333
       S3_ACCESS_KEY: chat-app
       S3_SECRET_KEY: chat-app-secret
-    ports: ["8080:8080"]
+    ports: ["127.0.0.1:8080:8080"]
 
   writer:
     build: ./writer
     depends_on: [app]
     environment: { APP_URL: "http://app:8080" }
-    ports: ["8090:8090"]
+    ports: ["127.0.0.1:8090:8090"]
 
   # ---- 이전 플랫폼 (API · 상태 머신 · Executor · 콘솔) ----
   platform:
@@ -115,7 +115,7 @@ services:
       - pgbouncer-target:/pgbouncer-target
       - ./app:/workload/app:ro   # ANALYZE가 읽는 이전 대상 앱 소스
       - ./platform/replay:/srv/replay   # AI 응답 기록 (replay 모드 입력)
-    ports: ["8000:8000"]
+    ports: ["127.0.0.1:8000:8000"]
 
 volumes:
   pgbouncer-target:
