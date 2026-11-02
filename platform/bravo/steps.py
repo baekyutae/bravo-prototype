@@ -1,4 +1,4 @@
-"""단계 모듈. STUB으로 시작해 3~6단계에서 실제 구현으로 바꾼다.
+"""단계 모듈. 2단계에서 STUB으로 시작해 3~6단계에서 실제 구현으로 바꿨다 (SHIFT만 SIMULATED).
 
 각 함수는 결과(dict)만 돌려주고 상태 전이는 하지 않는다.
 """
@@ -10,11 +10,6 @@ from .collect import analyze, apply_baseline, baseline_proposal, collect  # noqa
 from .events import bus
 from .gate import run as gate  # noqa: F401  (3단계)
 from .state import Plan
-
-
-def _stub(plan: Plan, step: str, message: str, **data) -> dict:
-    bus.publish(plan.id, "step", f"[STUB] {message}", step=step, stub=True, **data)
-    return {"stub": True, **data}
 
 
 def shift(plan: Plan) -> dict:
@@ -34,5 +29,9 @@ def cutover(plan: Plan) -> dict:
 
 
 def failback(plan: Plan) -> dict:
-    time.sleep(1)
-    return {**_stub(plan, "FAILBACK", "되돌리기"), "outcome": "COMMITTED"}
+    """S4: 컷오버와 같은 순서를 반대 방향으로. 목적지에 쓴 데이터는 역방향 복제로 이미 출발지에 와 있다."""
+    result = executor.run(plan, "failback")
+    if result["outcome"] == "COMMITTED":
+        time.sleep(2)
+        result["reconcile"] = executor.reconcile(plan)
+    return result
