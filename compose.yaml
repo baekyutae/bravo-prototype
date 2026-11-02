@@ -103,5 +103,14 @@ services:
     environment: { APP_URL: "http://app:8080" }
     ports: ["8090:8090"]
 
+  # ---- 이전 플랫폼 (API · 상태 머신 · Executor · 콘솔) ----
+  platform:
+    build: ./platform
+    depends_on: [app, writer]
+    env_file: .env
+    volumes:
+      - pgbouncer-target:/pgbouncer-target
+    ports: ["8000:8000"]
+
 volumes:
   pgbouncer-target:

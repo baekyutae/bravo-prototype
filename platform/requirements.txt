@@ -1,0 +1,6 @@
+fastapi==0.115.*
+uvicorn==0.32.*
+psycopg[binary]==3.2.*
+boto3==1.35.*
+httpx==0.28.*
+anthropic

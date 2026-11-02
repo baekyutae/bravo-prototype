@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bravo Exit Console</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #fff; --text: #1d2330; --muted: #6b7280; --line: #e3e6eb;
+    --accent: #2f6fde; --ok: #1a8a4a; --bad: #c8372d; --warn: #b7791f; --sim: #7c5cc4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #12151b; --panel: #1b1f27; --text: #e6e8ec; --muted: #9aa3af; --line: #2c323d;
+            --accent: #6b9cf0; --ok: #4cc17f; --bad: #ef6a5f; --warn: #e2a53f; --sim: #a88ef0; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", "Noto Sans KR", sans-serif;
+         background: var(--bg); color: var(--text); }
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 20px;
+           border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0; }
+  header .plan { color: var(--muted); font-family: ui-monospace, monospace; }
+  header .spacer { flex: 1; }
+  main { display: grid; grid-template-columns: 280px 1fr; gap: 16px; padding: 16px 20px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+  .card h2 { font-size: 13px; margin: 0 0 10px; color: var(--muted); font-weight: 600; }
+  .rail { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .chip { padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line); font-size: 12px;
+          color: var(--muted); font-family: ui-monospace, monospace; }
+  .chip.done { color: var(--text); border-color: var(--muted); }
+  .chip.now { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chip.exc.now { background: var(--bad); border-color: var(--bad); }
+  .actions { display: flex; flex-direction: column; gap: 6px; }
+  .actions .group { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  button { font: inherit; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--line);
+           background: var(--panel); color: var(--text); cursor: pointer; text-align: left; }
+  button:hover { border-color: var(--accent); }
+  button.next { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); font-weight: 600; }
+  button.danger { color: var(--bad); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .badge { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 4px;
+           font-weight: 600; margin-right: 4px; vertical-align: 1px; }
+  .b-stub { background: var(--line); color: var(--muted); }
+  .b-sim { background: color-mix(in srgb, var(--sim) 18%, transparent); color: var(--sim); }
+  .b-local { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+  .b-pass { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+  .b-block { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
+  .log { font-family: ui-monospace, monospace; font-size: 12px; max-height: 360px; overflow: auto; }
+  .log div { padding: 3px 0; border-bottom: 1px dashed var(--line); }
+  .log .t { color: var(--muted); margin-right: 6px; }
+  .log .state_changed { color: var(--accent); }
+  .log .transition_rejected, .log .error { color: var(--bad); }
+  pre { margin: 0; font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 360px; overflow: auto; }
+  .placeholder { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Bravo Exit Console</h1>
+  <span class="plan" id="planId">계획 없음</span>
+  <span class="spacer"></span>
+  <button id="newPlan">새 이전 계획</button>
+</header>
+
+<main>
+  <section class="col">
+    <div class="card">
+      <h2>실행</h2>
+      <div class="actions" id="actions"></div>
+    </div>
+  </section>
+
+  <section class="col">
+    <div class="card">
+      <h2>상태 머신</h2>
+      <div class="rail" id="flow"></div>
+      <div class="rail" id="exceptions"></div>
+    </div>
+
+    <div class="grid">
+      <div class="card"><h2>원본 대조 게이트</h2><div id="gate" class="placeholder">3단계에서 연결</div></div>
+      <div class="card"><h2>AI 제안서 · 검증</h2><div id="proposal" class="placeholder">4단계에서 연결</div></div>
+      <div class="card"><h2>컷오버 · 영수증</h2><div id="cutover" class="placeholder">5단계에서 연결</div></div>
+      <div class="card"><h2>단계 결과 (원본 데이터)</h2><pre id="data"></pre></div>
+    </div>
+
+    <div class="card">
+      <h2>이벤트</h2>
+      <div class="log" id="log"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const ACTIONS = [
+  { group: "S1 · S2" },
+  { id: "gate", label: "원본 대조 게이트 실행", path: "gate" },
+  { id: "rehearsals", label: "AI 보완 · 리허설", path: "rehearsals" },
+  { id: "approvals", label: "승인", path: "approvals", body: { approver: "operator" } },
+  { group: "S3" },
+  { id: "shift", label: "트래픽 전환 (SHIFT)", path: "shift" },
+  { id: "cutover", label: "컷오버", path: "cutover" },
+  { id: "complete", label: "관찰 종료 (DONE)", path: "complete" },
+  { group: "S4 · 데모 주입" },
+  { id: "fault", label: "목적지 장애 주입", path: "faults", body: { kind: "target_failure" }, danger: true },
+  { id: "tool", label: "파괴적 명령 주입", path: "faults", body: { kind: "destructive_tool" }, danger: true },
+  { id: "failback", label: "수동 되돌리기", path: "failback", danger: true },
+];
+
+let meta = null, plan = null, source = null;
+
+function nextAction(p) {
+  if (!p) return null;
+  const gate = p.data.gate;
+  switch (p.state) {
+    case "REHEARSE": return "gate";
+    case "GATE": return gate && gate.verdict === "BLOCK" ? "rehearsals" : null;
+    case "AWAIT_APPROVAL": return p.data.approval ? "shift" : "approvals";
+    case "SHIFT": return "cutover";
+    case "WATCH": return "complete";
+    default: return null;
+  }
+}
+
+function renderActions() {
+  const box = $("actions"); box.innerHTML = "";
+  const next = nextAction(plan);
+  for (const a of ACTIONS) {
+    if (a.group) { const g = document.createElement("div"); g.className = "group"; g.textContent = a.group; box.append(g); continue; }
+    const b = document.createElement("button");
+    b.textContent = a.label;
+    if (a.id === next) b.classList.add("next");
+    if (a.danger) b.classList.add("danger");
+    b.disabled = !plan;
+    b.onclick = () => post(`/v1/plans/${plan.id}/${a.path}`, a.body || {});
+    box.append(b);
+  }
+}
+
+function renderRail() {
+  const visited = new Set((plan?.history || []).flatMap(h => [h.from, h.to]));
+  const fill = (el, states, exc) => {
+    el.innerHTML = "";
+    for (const s of states) {
+      const c = document.createElement("span");
+      c.className = "chip" + (exc ? " exc" : "") + (visited.has(s) ? " done" : "") + (plan?.state === s ? " now" : "");
+      c.textContent = s; el.append(c);
+    }
+  };
+  fill($("flow"), meta.flow, false);
+  fill($("exceptions"), meta.exceptions, true);
+}
+
+function render() {
+  $("planId").textContent = plan ? `${plan.id} · ${plan.state}` : "계획 없음";
+  renderRail(); renderActions();
+  $("data").textContent = plan ? JSON.stringify(plan.data, null, 2) : "";
+}
+
+function log(e) {
+  const d = document.createElement("div");
+  d.className = e.type;
+  const t = new Date(e.ts * 1000).toLocaleTimeString("ko-KR", { hour12: false });
+  const badges = (e.data?.stub ? '<span class="badge b-stub">STUB</span>' : "")
+               + (e.data?.simulated ? '<span class="badge b-sim">SIMULATED</span>' : "");
+  d.innerHTML = `<span class="t">${t} #${e.id ?? "-"}</span>${badges}<b>${e.type}</b> ${escape(e.message || "")}`;
+  $("log").prepend(d);
+}
+const escape = (s) => s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+async function loadPlan(id) {
+  plan = await (await fetch(`/v1/plans/${id}`)).json();
+  render();
+}
+
+function subscribe(id) {
+  if (source) source.close();
+  $("log").innerHTML = "";
+  source = new EventSource(`/v1/plans/${id}/events`);
+  source.onmessage = (m) => { log(JSON.parse(m.data)); loadPlan(id); };
+}
+
+async function post(path, body) {
+  const r = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+    body: JSON.stringify(body),
+  });
+  const j = await r.json();
+  if (!r.ok) log({ type: "error", ts: Date.now() / 1000, message: `${r.status} ${j.detail || j.error}` });
+  return j;
+}
+
+$("newPlan").onclick = async () => {
+  if (source) source.close();
+  const p = await post("/v1/plans", {});
+  if (p.id) { subscribe(p.id); await loadPlan(p.id); }
+};
+
+(async () => {
+  meta = await (await fetch("/v1/meta")).json();
+  if (meta.current_plan_id) { subscribe(meta.current_plan_id); await loadPlan(meta.current_plan_id); }
+  else render();
+})();
+</script>
+</body>
+</html>
