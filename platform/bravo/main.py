@@ -11,7 +11,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from . import agent, workflow
+from . import agent, live, workflow
 from .events import bus
 from .state import EXCEPTIONS, FLOW, TransitionError
 
@@ -83,6 +83,24 @@ def console():
 def meta():
     return {"flow": FLOW, "exceptions": EXCEPTIONS, "current_plan_id": workflow.current_plan_id,
             "ai_mode": agent.MODE, "model": agent.MODEL}
+
+
+@app.get("/v1/live")
+def live_state():
+    """콘솔 토폴로지용: 쓰기 DB, 복제 방향 · 지연, 무인증 노출, 부하 현황."""
+    return live.snapshot()
+
+
+class LoadIn(BaseModel):
+    rate: float = 20.0
+
+
+@app.post("/v1/load/{action}")
+def load(action: str, body: LoadIn | None = None):
+    """데모 하네스: 부하 생성기 시작 · 중지 (이전 계획의 실행 단계가 아님)."""
+    if action not in ("start", "stop"):
+        raise HTTPException(404)
+    return live.writer_control(action, body.rate if body and action == "start" else None)
 
 
 @app.post("/v1/plans")

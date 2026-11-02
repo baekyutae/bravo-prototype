@@ -4,296 +4,697 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bravo Exit Console</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <style>
+:root {
+  --bg: #f4f5f3; --surface: #fcfcfb; --surface-2: #f0f1ee; --line: #e2e4df; --line-strong: #c9ccc4;
+  --ink: #1c1d1a; --ink-2: #4a4c46; --muted: #7b7e75;
+  --accent: #3b5bdb; --accent-soft: #e7ecfd; --ai: #7048e8; --ai-soft: #f0ebfe;
+  --good: #0ca30c; --good-ink: #0a7a0a; --warning: #fab219; --warning-ink: #8a5a00;
+  --serious: #ec835a; --critical: #d03b3b; --critical-ink: #b42f2f;
+  --sim: #8a7a5a; --sim-soft: #f3efe6;
+  --shadow: 0 1px 2px rgb(0 0 0 / .04), 0 4px 16px rgb(0 0 0 / .04);
+  --radius: 12px;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
   :root {
-    --bg: #f6f7f9; --panel: #fff; --text: #1d2330; --muted: #6b7280; --line: #e3e6eb;
-    --accent: #2f6fde; --ok: #1a8a4a; --bad: #c8372d; --warn: #b7791f; --sim: #7c5cc4;
+    --bg: #121211; --surface: #1a1a19; --surface-2: #222220; --line: #2e2e2b; --line-strong: #44443f;
+    --ink: #ecece8; --ink-2: #bdbdb6; --muted: #8b8b84;
+    --accent: #7c95f5; --accent-soft: #1f2640; --ai: #a58bfa; --ai-soft: #2a2140;
+    --good-ink: #4fc94f; --warning-ink: #fab219; --critical-ink: #f07373;
+    --sim: #c4b28a; --sim-soft: #2a2620;
+    --shadow: none;
   }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #12151b; --panel: #1b1f27; --text: #e6e8ec; --muted: #9aa3af; --line: #2c323d;
-            --accent: #6b9cf0; --ok: #4cc17f; --bad: #ef6a5f; --warn: #e2a53f; --sim: #a88ef0; }
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", "Noto Sans KR", sans-serif;
-         background: var(--bg); color: var(--text); }
-  header { display: flex; align-items: center; gap: 12px; padding: 12px 20px;
-           border-bottom: 1px solid var(--line); background: var(--panel); }
-  header h1 { font-size: 16px; margin: 0; }
-  header .plan { color: var(--muted); font-family: ui-monospace, monospace; }
-  header .spacer { flex: 1; }
-  main { display: grid; grid-template-columns: 280px 1fr; gap: 16px; padding: 16px 20px; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
-  .card h2 { font-size: 13px; margin: 0 0 10px; color: var(--muted); font-weight: 600; }
-  .rail { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-  .chip { padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line); font-size: 12px;
-          color: var(--muted); font-family: ui-monospace, monospace; }
-  .chip.done { color: var(--text); border-color: var(--muted); }
-  .chip.now { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .chip.exc.now { background: var(--bad); border-color: var(--bad); }
-  .actions { display: flex; flex-direction: column; gap: 6px; }
-  .actions .group { font-size: 12px; color: var(--muted); margin-top: 8px; }
-  button { font: inherit; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--line);
-           background: var(--panel); color: var(--text); cursor: pointer; text-align: left; }
-  button:hover { border-color: var(--accent); }
-  button.next { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); font-weight: 600; }
-  button.danger { color: var(--bad); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
-  .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-  .badge { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 4px;
-           font-weight: 600; margin-right: 4px; vertical-align: 1px; }
-  .b-stub { background: var(--line); color: var(--muted); }
-  .b-sim { background: color-mix(in srgb, var(--sim) 18%, transparent); color: var(--sim); }
-  .b-ai { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
-  .b-local { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
-  .b-pass { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
-  .b-block { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
-  .log { font-family: ui-monospace, monospace; font-size: 12px; max-height: 360px; overflow: auto; }
-  .log div { padding: 3px 0; border-bottom: 1px dashed var(--line); }
-  .log .t { color: var(--muted); margin-right: 6px; }
-  .log .state_changed { color: var(--accent); }
-  .log .transition_rejected, .log .error { color: var(--bad); }
-  pre { margin: 0; font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 360px; overflow: auto; }
-  .placeholder { color: var(--muted); font-size: 13px; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { color: var(--muted); font-weight: 600; font-size: 12px; }
-  .mono { font-family: ui-monospace, monospace; font-size: 12px; }
-  .verdict { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
-  .sub { color: var(--muted); font-size: 12px; margin: 8px 0 4px; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.55 Pretendard, system-ui, -apple-system, "Segoe UI", "Noto Sans KR", sans-serif;
+       -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; }
+.mono { font-family: var(--mono); font-size: 12px; }
+.muted { color: var(--muted); }
+.spacer { flex: 1; }
+
+/* ---------- top bar ---------- */
+.top { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px;
+       padding: 10px 24px; background: color-mix(in srgb, var(--surface) 88%, transparent);
+       backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -.01em; }
+.brand-mark { width: 22px; height: 22px; border-radius: 6px; background: linear-gradient(135deg, var(--accent), var(--ai)); }
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 999px;
+        border: 1px solid var(--line); background: var(--surface); font-size: 12px; color: var(--ink-2); white-space: nowrap; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.dot.on { background: var(--good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 20%, transparent); }
+.btn { height: 34px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--surface);
+       cursor: pointer; font-weight: 600; font-size: 13px; transition: border-color .15s, background .15s; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.small { height: 28px; padding: 0 10px; font-size: 12px; font-weight: 500; }
+.btn.danger { color: var(--critical-ink); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.busy { pointer-events: none; opacity: .6; }
+.btn.busy::after { content: " …"; }
+
+/* ---------- layout ---------- */
+.page { max-width: 1440px; margin: 0 auto; padding: 20px 24px 40px; display: grid; gap: 16px;
+        grid-template-columns: minmax(0, 1fr) 360px; }
+.full { grid-column: 1 / -1; }
+@media (max-width: 1100px) { .page { grid-template-columns: 1fr; padding: 16px; } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); min-width: 0; }
+.card-h { display: flex; align-items: center; gap: 10px; padding: 14px 18px 0; }
+.card-h h2 { margin: 0; font-size: 13px; font-weight: 700; color: var(--ink-2); letter-spacing: -.005em; }
+.card-b { padding: 14px 18px 18px; }
+.stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+/* ---------- badges ---------- */
+.badge { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px; border-radius: 5px;
+         font-size: 11px; font-weight: 600; white-space: nowrap; vertical-align: middle; }
+.b-good { background: color-mix(in srgb, var(--good) 14%, transparent); color: var(--good-ink); }
+.b-crit { background: color-mix(in srgb, var(--critical) 14%, transparent); color: var(--critical-ink); }
+.b-warn { background: color-mix(in srgb, var(--warning) 22%, transparent); color: var(--warning-ink); }
+.b-ai { background: var(--ai-soft); color: var(--ai); }
+.b-sim { background: var(--sim-soft); color: var(--sim); }
+.b-local { background: color-mix(in srgb, var(--serious) 16%, transparent); color: var(--serious); }
+.b-neutral { background: var(--surface-2); color: var(--ink-2); }
+
+/* ---------- topology ---------- */
+.topo { width: 100%; height: auto; display: block; }
+.topo text { font-family: inherit; fill: var(--ink); }
+.topo .zone { fill: var(--surface-2); stroke: var(--line); }
+.topo .zone-label { font-size: 13px; font-weight: 700; }
+.topo .zone-sub { font-size: 11px; fill: var(--muted); }
+.topo .node { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1; }
+.topo .node.active { stroke: var(--accent); stroke-width: 2; }
+.topo .node.alert { stroke: var(--critical); stroke-width: 2; }
+.topo .n-title { font-size: 13px; font-weight: 700; }
+.topo .n-sub { font-size: 11px; fill: var(--muted); }
+.topo .n-val { font-size: 12px; font-family: var(--mono); fill: var(--ink-2); }
+.topo .edge { fill: none; stroke: var(--line-strong); stroke-width: 1.5; }
+.topo .edge.on { stroke: var(--accent); stroke-width: 2.5; }
+.topo .edge.flow { stroke-dasharray: 6 6; animation: flow 1s linear infinite; }
+.topo .edge.repl { stroke: var(--ai); stroke-width: 2; }
+.topo .edge.off { stroke-dasharray: 3 5; opacity: .6; }
+.topo .tag { font-size: 11px; font-weight: 700; }
+@keyframes flow { to { stroke-dashoffset: -12; } }
+@media (prefers-reduced-motion: reduce) { .topo .edge.flow { animation: none; } }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 0 18px 14px; font-size: 12px; color: var(--muted); align-items: center; }
+.legend i { display: inline-block; width: 18px; height: 0; border-top: 2.5px solid; vertical-align: middle; margin-right: 6px; }
+
+/* ---------- pipeline ---------- */
+.pipe { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+.phase { flex: 1 0 auto; border-radius: 10px; padding: 8px 10px 10px; border: 1px dashed var(--line-strong); }
+.phase.ai { background: color-mix(in srgb, var(--ai-soft) 60%, transparent); border-color: color-mix(in srgb, var(--ai) 35%, transparent); }
+.phase.human { background: color-mix(in srgb, var(--warning) 8%, transparent); border-color: color-mix(in srgb, var(--warning) 45%, transparent); }
+.phase.code { background: color-mix(in srgb, var(--accent-soft) 60%, transparent); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+.phase-h { font-size: 11px; font-weight: 700; color: var(--ink-2); margin-bottom: 8px; }
+.steps { display: flex; gap: 6px; }
+.step { display: flex; flex-direction: column; gap: 2px; min-width: 92px; padding: 8px 10px; border-radius: 8px;
+        background: var(--surface); border: 1px solid var(--line); }
+.step b { font-size: 11px; font-family: var(--mono); letter-spacing: .02em; color: var(--muted); font-weight: 600; }
+.step span { font-size: 12px; color: var(--ink-2); }
+.step.done b::before { content: "✓ "; color: var(--good-ink); }
+.step.done b { color: var(--ink-2); }
+.step.now { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.step.now b { color: var(--accent); }
+.exc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; font-size: 12px; color: var(--muted); }
+.exc .step { min-width: 0; flex-direction: row; gap: 6px; padding: 4px 9px; }
+.exc .step.now { border-color: var(--critical); box-shadow: 0 0 0 3px color-mix(in srgb, var(--critical) 15%, transparent); }
+.exc .step.now b { color: var(--critical-ink); }
+
+/* ---------- next action ---------- */
+.next { display: flex; gap: 18px; align-items: center; padding: 18px; }
+.next-ico { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
+            background: var(--accent-soft); color: var(--accent); font-size: 20px; font-weight: 700; }
+.next-ico.ai { background: var(--ai-soft); color: var(--ai); }
+.next-ico.human { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning-ink); }
+.next-ico.stop { background: color-mix(in srgb, var(--critical) 14%, transparent); color: var(--critical-ink); }
+.next-k { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
+.next-t { font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
+.next-d { color: var(--ink-2); font-size: 13px; margin-top: 2px; }
+.next .btn { flex: none; height: 40px; padding: 0 18px; }
+@media (max-width: 640px) { .next { flex-wrap: wrap; } }
+details.more { border-top: 1px solid var(--line); }
+details.more summary { cursor: pointer; padding: 10px 18px; font-size: 12px; color: var(--muted); list-style: none; }
+details.more summary::-webkit-details-marker { display: none; }
+details.more summary::before { content: "▸ "; }
+details.more[open] summary::before { content: "▾ "; }
+.more-b { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 18px 14px; }
+.more-b .sep { width: 100%; font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+/* ---------- tabs ---------- */
+.tabs { display: flex; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tab { padding: 12px 10px; border: 0; background: none; cursor: pointer; font-size: 13px; color: var(--muted);
+       border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; font-weight: 600; }
+.tab.on { color: var(--ink); border-bottom-color: var(--ink); }
+.tab .badge { margin-left: 4px; }
+.panel { padding: 16px 18px 18px; min-height: 220px; overflow-x: auto; }
+.empty { color: var(--muted); font-size: 13px; padding: 24px 0; text-align: center; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 11px; color: var(--muted); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+.verdict-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.verdict-big { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+.sec { font-size: 11px; font-weight: 700; color: var(--muted); margin: 18px 0 8px; letter-spacing: .02em; display: flex; gap: 6px; align-items: center; }
+.sec:first-child { margin-top: 0; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 13px; margin: 0; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; }
+.attempt { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+.attempt-h { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; font-size: 12px; font-weight: 600; }
+.chain { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; }
+.chain .arrow { color: var(--muted); }
+.reason { color: var(--ink-2); font-size: 12px; margin-top: 4px; }
+.evidence { color: var(--muted); font-size: 11px; margin-top: 3px; font-family: var(--mono); }
+ul.clean { margin: 4px 0 0; padding-left: 18px; }
+ul.clean li { margin: 2px 0; }
+.bind { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 640px) { .two { grid-template-columns: 1fr; } }
+
+/* ---------- live load ---------- */
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tile { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.tile .l { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .v { font-size: 20px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.tile .v small { font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 2px; }
+.spark-wrap { position: relative; margin-top: 14px; }
+.spark { width: 100%; height: 56px; display: block; cursor: crosshair; }
+.spark-tip { position: absolute; top: -4px; transform: translate(-50%, -100%); background: var(--ink); color: var(--surface);
+             font-size: 11px; padding: 3px 7px; border-radius: 5px; pointer-events: none; white-space: nowrap; display: none; }
+.load-ctl { display: flex; gap: 6px; align-items: center; margin-top: 12px; }
+.load-ctl select { height: 28px; border-radius: 7px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font: inherit; font-size: 12px; padding: 0 6px; }
+
+/* ---------- feed ---------- */
+.filters { display: flex; gap: 4px; flex-wrap: wrap; }
+.chipf { height: 24px; padding: 0 9px; border-radius: 999px; border: 1px solid var(--line); background: none; cursor: pointer; font-size: 11px; color: var(--muted); }
+.chipf.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.feed { max-height: 560px; overflow: auto; padding: 4px 18px 14px; }
+.ev { display: grid; grid-template-columns: 18px 1fr; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+.ev:last-child { border-bottom: 0; }
+.ev .ic { font-weight: 700; text-align: center; color: var(--muted); }
+.ev.state .ic { color: var(--accent); }
+.ev.ai .ic { color: var(--ai); }
+.ev.bad .ic { color: var(--critical-ink); }
+.ev.good .ic { color: var(--good-ink); }
+.ev .meta { font-size: 11px; color: var(--muted); }
+.ev .msg { color: var(--ink); word-break: break-word; }
+
+/* ---------- toast ---------- */
+.toasts { position: fixed; right: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 20; }
+.toast { background: var(--ink); color: var(--surface); padding: 10px 14px; border-radius: 10px; font-size: 13px; max-width: 420px;
+         box-shadow: 0 6px 24px rgb(0 0 0 / .2); animation: in .2s ease-out; }
+.toast.bad { background: var(--critical); color: #fff; }
+@keyframes in { from { transform: translateY(6px); opacity: 0; } }
 </style>
 </head>
 <body>
-<header>
-  <h1>Bravo Exit Console</h1>
-  <span class="plan" id="planId">계획 없음</span>
-  <span class="plan" id="aiMode"></span>
+
+<header class="top">
+  <div class="brand"><span class="brand-mark"></span>Bravo Exit Console</div>
+  <span class="pill" id="planPill">계획 없음</span>
+  <span class="pill" id="aiPill">AI</span>
+  <span class="pill"><span class="dot" id="connDot"></span><span id="connText">연결 대기</span></span>
   <span class="spacer"></span>
-  <button id="newPlan">새 이전 계획</button>
+  <button class="btn" id="newPlan">새 이전 계획</button>
 </header>
 
-<main>
-  <section class="col">
-    <div class="card">
-      <h2>실행</h2>
-      <div class="actions" id="actions"></div>
+<main class="page">
+  <section class="card full">
+    <div class="card-h"><h2>이전 토폴로지</h2><span class="muted" style="font-size:12px">실제 상태를 1.5초마다 조회</span></div>
+    <div class="card-b" style="padding-bottom:6px">
+      <svg class="topo" id="topo" viewBox="0 0 1000 300" role="img" aria-label="출발지와 목적지 사이의 쓰기 경로, 복제, 저장소 노출 상태"></svg>
+    </div>
+    <div class="legend">
+      <span><i style="border-color:var(--accent)"></i>업무 쓰기 경로</span>
+      <span><i style="border-color:var(--ai);border-top-style:dashed"></i>논리 복제 (화살표 = 흐름 방향)</span>
+      <span><span class="badge b-crit">! 무인증 허용</span> 원본보다 약한 보호</span>
+      <span><span class="badge b-sim">SIMULATED</span> 로컬에 없는 클라우드 구성</span>
     </div>
   </section>
 
-  <section class="col">
-    <div class="card">
-      <h2>상태 머신</h2>
-      <div class="rail" id="flow"></div>
-      <div class="rail" id="exceptions"></div>
-    </div>
-
-    <div class="grid">
-      <div class="card"><h2>출발지 수집 · 의존성</h2><div id="inventory" class="placeholder">계획을 만들면 표시</div></div>
-      <div class="card"><h2>원본 대조 게이트</h2><div id="gate" class="placeholder">게이트 실행 전</div></div>
-      <div class="card"><h2>AI 제안서 · 검증</h2><div id="proposal" class="placeholder">게이트 BLOCK 뒤 "AI 보완 · 리허설"</div></div>
-      <div class="card"><h2>승인</h2><div id="approval" class="placeholder">게이트 PASS 뒤 표시</div></div>
-      <div class="card"><h2>컷오버 · 영수증</h2><div id="cutover" class="placeholder">5단계에서 연결</div></div>
-      <div class="card"><h2>단계 결과 (원본 데이터)</h2><pre id="data"></pre></div>
-    </div>
-
-    <div class="card">
-      <h2>이벤트</h2>
-      <div class="log" id="log"></div>
+  <section class="card full">
+    <div class="card-h"><h2>상태 머신</h2><span class="spacer"></span><span class="muted" style="font-size:12px" id="attemptInfo"></span></div>
+    <div class="card-b">
+      <div class="pipe" id="pipe"></div>
+      <div class="exc" id="exc"></div>
     </div>
   </section>
+
+  <div class="stack">
+    <section class="card">
+      <div class="next" id="next"></div>
+      <details class="more">
+        <summary>수동 실행 · 데모 주입 — 순서를 벗어난 요청은 서버가 거부합니다</summary>
+        <div class="more-b" id="more"></div>
+      </details>
+    </section>
+    <section class="card">
+      <div class="tabs" id="tabs"></div>
+      <div class="panel" id="panel"></div>
+    </section>
+  </div>
+
+  <div class="stack">
+    <section class="card">
+      <div class="card-h"><h2>업무 쓰기 부하</h2><span class="badge b-local">LOCAL</span><span class="spacer"></span><span id="loadState" class="badge b-neutral">중지</span></div>
+      <div class="card-b">
+        <div class="tiles" id="tiles"></div>
+        <div class="spark-wrap">
+          <svg class="spark" id="spark" viewBox="0 0 320 56" preserveAspectRatio="none" aria-label="초당 ACK 추이"></svg>
+          <div class="spark-tip" id="sparkTip"></div>
+        </div>
+        <div class="muted" style="font-size:11px;margin-top:2px">초당 ACK · 최근 90초 (쓰기 정지 구간이 골로 보입니다)</div>
+        <div class="load-ctl">
+          <select id="rate" aria-label="초당 요청 수"><option>10</option><option selected>20</option><option>50</option></select>
+          <span class="muted" style="font-size:12px">req/s</span>
+          <span class="spacer"></span>
+          <button class="btn small" id="loadStart">부하 시작</button>
+          <button class="btn small" id="loadStop">중지</button>
+        </div>
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-h"><h2>이벤트</h2><span class="spacer"></span><div class="filters" id="filters"></div></div>
+      <div class="feed" id="feed"></div>
+    </section>
+  </div>
 </main>
+
+<div class="toasts" id="toasts"></div>
 
 <script>
 const $ = (id) => document.getElementById(id);
-const ACTIONS = [
-  { group: "S1 · S2" },
-  { id: "gate", label: "원본 대조 게이트 실행", path: "gate" },
-  { id: "rehearsals", label: "AI 보완 · 리허설", path: "rehearsals" },
-  { id: "approvals", label: "승인 (결속 값 포함)", path: "approvals", body: () => approvalBody() },
-  { group: "S3" },
-  { id: "shift", label: "트래픽 전환 (SHIFT)", path: "shift" },
-  { id: "cutover", label: "컷오버", path: "cutover" },
-  { id: "complete", label: "관찰 종료 (DONE)", path: "complete" },
-  { group: "S4 · 데모 주입" },
-  { id: "fault", label: "목적지 장애 주입", path: "faults", body: { kind: "target_failure" }, danger: true },
-  { id: "tool", label: "파괴적 명령 주입", path: "faults", body: { kind: "destructive_tool" }, danger: true },
-  { id: "badProposal", label: "잘못된 제안서 주입", path: "faults", body: { kind: "invalid_proposal" }, danger: true },
-  { id: "failback", label: "수동 되돌리기", path: "failback", danger: true },
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmt = (n) => n == null ? "–" : Number(n).toLocaleString("ko-KR");
+const bytes = (b) => b == null ? "–" : b < 1024 ? `${b} B` : `${(b / 1024).toFixed(1)} KB`;
+const clock = (ts) => new Date(ts * 1000).toLocaleTimeString("ko-KR", { hour12: false });
+
+let meta = null, plan = null, liveState = null, source = null, events = [];
+let feedFilter = "all", activeTab = "inventory", tabPinned = false, lastState = null;
+const ackHistory = []; let lastAck = null, lastAckTs = null;
+
+/* ===================== 서버 호출 ===================== */
+async function post(path, body, btn) {
+  btn?.classList.add("busy");
+  try {
+    const r = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+      body: JSON.stringify(body || {}),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) toast(`${r.status} · ${j.detail || j.error || "요청 실패"}`, true);
+    return j;
+  } catch (e) { toast(`요청 실패 · ${e.message}`, true); return {}; }
+  finally { btn?.classList.remove("busy"); }
+}
+function toast(msg, bad) {
+  const t = document.createElement("div"); t.className = "toast" + (bad ? " bad" : ""); t.textContent = msg;
+  $("toasts").append(t); setTimeout(() => t.remove(), 5000);
+}
+
+/* ===================== 상태 머신 ===================== */
+const PHASES = [
+  { cls: "ai", title: "준비 · AI가 제안하고 코드가 합격선을 지킴",
+    steps: [["COLLECT", "설정 수집"], ["ANALYZE", "의존성 분석"], ["PROPOSE", "제안서"], ["REHEARSE", "리허설"], ["GATE", "원본 대조"]] },
+  { cls: "human", title: "사람", steps: [["AWAIT_APPROVAL", "결속 승인"]] },
+  { cls: "code", title: "실행 · 코드만 (LLM 미사용)",
+    steps: [["SHIFT", "트래픽 전환"], ["CUTOVER", "컷오버"], ["WATCH", "감시"], ["DONE", "완료"]] },
 ];
+const EXC = [["NEEDS_HUMAN", "AI 3회 초과"], ["SAFE_HOLD", "상태 불명 · 쓰기 닫음"], ["FAILBACK", "되돌리기"], ["DONE_ROLLED_BACK", "출발지 복귀"]];
 
-let meta = null, plan = null, source = null;
-
-function nextAction(p) {
-  if (!p) return null;
-  const gate = p.data.gate;
-  switch (p.state) {
-    case "REHEARSE": return "gate";
-    case "GATE": return gate && gate.verdict === "BLOCK" ? "rehearsals" : null;
-    case "AWAIT_APPROVAL": return p.data.approval ? "shift" : "approvals";
-    case "SHIFT": return "cutover";
-    case "WATCH": return "complete";
-    default: return null;
-  }
-}
-
-function renderActions() {
-  const box = $("actions"); box.innerHTML = "";
-  const next = nextAction(plan);
-  for (const a of ACTIONS) {
-    if (a.group) { const g = document.createElement("div"); g.className = "group"; g.textContent = a.group; box.append(g); continue; }
-    const b = document.createElement("button");
-    b.textContent = a.label;
-    if (a.id === next) b.classList.add("next");
-    if (a.danger) b.classList.add("danger");
-    b.disabled = !plan;
-    b.onclick = () => post(`/v1/plans/${plan.id}/${a.path}`, typeof a.body === "function" ? a.body() : (a.body || {}));
-    box.append(b);
-  }
-}
-
-function renderRail() {
+function renderPipe() {
   const visited = new Set((plan?.history || []).flatMap(h => [h.from, h.to]));
-  const fill = (el, states, exc) => {
-    el.innerHTML = "";
-    for (const s of states) {
-      const c = document.createElement("span");
-      c.className = "chip" + (exc ? " exc" : "") + (visited.has(s) ? " done" : "") + (plan?.state === s ? " now" : "");
-      c.textContent = s; el.append(c);
-    }
-  };
-  fill($("flow"), meta.flow, false);
-  fill($("exceptions"), meta.exceptions, true);
+  if (plan) visited.add("COLLECT");
+  const step = ([id, label]) => `<div class="step ${plan?.state === id ? "now" : visited.has(id) ? "done" : ""}"><b>${id}</b><span>${label}</span></div>`;
+  $("pipe").innerHTML = PHASES.map(p => `<div class="phase ${p.cls}"><div class="phase-h">${p.title}</div><div class="steps">${p.steps.map(step).join("")}</div></div>`).join("");
+  $("exc").innerHTML = `<span>예외 경로</span>` + EXC.map(step).join("");
+  $("attemptInfo").textContent = plan ? `AI 제안 시도 ${plan.ai_attempts}/3 · epoch ${plan.epoch}` : "";
 }
 
-function render() {
-  $("planId").textContent = plan ? `${plan.id} · ${plan.state}` : "계획 없음";
-  renderRail(); renderActions();
-  $("data").textContent = plan ? JSON.stringify(plan.data, null, 2) : "";
-  renderInventory(); renderGate(); renderProposal(); renderApproval();
+/* ===================== 다음 단계 ===================== */
+function nextAction() {
+  if (!plan) return { k: "시작", t: "새 이전 계획", d: "출발지 설정 수집 → 의존성 정적 분석(애매한 항목만 AI 분류) → 목적지 구축 확인까지 실행합니다.",
+                      ico: "+", run: (b) => newPlan(b), label: "계획 만들기" };
+  const g = plan.data.gate, s = plan.state;
+  const act = (path) => (b) => post(`/v1/plans/${plan.id}/${path}`, {}, b);
+  switch (s) {
+    case "REHEARSE":
+      return { k: "S1 · 규칙 판정", t: g ? "원본 대조 게이트 재대조" : "원본 대조 게이트",
+               d: "원본과 대상에 같은 질문 3개(무인증 읽기 · 스키마 해시 · 복제 지연)를 던져 규칙으로 판정합니다. AI를 쓰지 않습니다.",
+               ico: "=", run: act("gate"), label: "게이트 실행" };
+    case "GATE":
+      if (g?.verdict === "BLOCK") return { k: "S2 · AI 시도, 코드 검증", t: "AI 보완 · 리허설", kind: "ai",
+               d: "AI가 번역 제안서를 쓰면 스키마 → 린트 → 리허설 버킷 검증 → 목적지 반영 순으로 확인합니다. 실패하면 사유를 돌려주고 최대 3회 다시 시도합니다.",
+               ico: "✦", run: act("rehearsals"), label: "AI 보완 시작" };
+      break;
+    case "AWAIT_APPROVAL":
+      if (!plan.data.approval) return { k: "사람 판단", t: "결속 승인", kind: "human",
+               d: "승인 탭의 AI 요약과 결속 값을 확인하세요. 승인은 지금의 제안서 · 게이트 결과에 묶이며 값이 바뀌면 무효가 됩니다.",
+               ico: "✓", run: (b) => approve(b), label: "결속 값으로 승인" };
+      return { k: "S3 · 코드만", t: "트래픽 전환 (SHIFT)", d: "Edge 가중치를 10 → 50 → 100%로 옮깁니다. 로컬에는 Edge가 없어 표시만 합니다 (SIMULATED).",
+               ico: "→", run: act("shift"), label: "전환 시작" };
+    case "SHIFT":
+      return { k: "S3 · 코드만", t: "컷오버", d: "쓰기 정지 → 출발지 펜싱 → barrier → 무결성 영수증 → 진입점 전환. AI는 관여하지 않습니다. 부하를 켠 채 실행하면 쓰기 공백을 볼 수 있습니다.",
+               ico: "⇄", run: act("cutover"), label: "컷오버 실행" };
+    case "WATCH":
+      return { k: "S3 · 감시", t: "목적지에서 운영 중", d: "문제가 없으면 종료합니다. 장애를 주입하면 S4 되돌리기로 갑니다.",
+               ico: "◉", run: act("complete"), label: "관찰 종료" };
+    case "DONE": case "DONE_ROLLED_BACK":
+      return { k: "종료", t: s === "DONE" ? "이전 완료" : "출발지로 복귀 완료", d: "새 계획으로 다시 시작할 수 있습니다.",
+               ico: "✓", run: (b) => newPlan(b), label: "새 계획" };
+    case "NEEDS_HUMAN":
+      return { k: "멈춤", t: "사람 확인 필요", kind: "stop", d: "AI 제안이 3회 안에 검증을 통과하지 못했습니다. AI 제안 탭의 거부 사유를 확인하세요.", ico: "!" };
+    case "SAFE_HOLD":
+      return { k: "멈춤", t: "SAFE_HOLD", kind: "stop", d: "원격 상태를 확인할 수 없어 어느 쪽도 쓰기를 열지 않았습니다. 사람이 판단해야 합니다.", ico: "!" };
+  }
+  return { k: "진행 중", t: s, d: "다음 단계를 준비하고 있습니다.", ico: "…" };
+}
+function renderNext() {
+  const n = nextAction();
+  $("next").innerHTML = `<div class="next-ico ${n.kind || ""}">${n.ico}</div>
+    <div style="flex:1;min-width:0"><div class="next-k">다음 단계 · ${esc(n.k)}</div><div class="next-t">${esc(n.t)}</div><div class="next-d">${esc(n.d)}</div></div>
+    ${n.run ? `<button class="btn primary" id="nextBtn">${esc(n.label)}</button>` : ""}`;
+  if (n.run) $("nextBtn").onclick = (e) => n.run(e.currentTarget);
+}
+
+const MANUAL = [
+  { sep: "단계 (현재 상태와 무관하게 요청 → 서버가 판정)" },
+  ["게이트", "gate"], ["AI 보완", "rehearsals"], ["승인", "approvals"], ["SHIFT", "shift"],
+  ["컷오버", "cutover"], ["관찰 종료", "complete"], ["수동 되돌리기", "failback", null, true],
+  { sep: "데모 주입 (화면에 주입으로 표시)" },
+  ["잘못된 제안서", "faults", { kind: "invalid_proposal" }, true], ["파괴적 명령", "faults", { kind: "destructive_tool" }, true],
+  ["목적지 장애", "faults", { kind: "target_failure" }, true],
+];
+function renderMore() {
+  $("more").innerHTML = "";
+  for (const m of MANUAL) {
+    if (m.sep) { const s = document.createElement("div"); s.className = "sep"; s.textContent = m.sep; $("more").append(s); continue; }
+    const [label, path, body, danger] = m;
+    const b = document.createElement("button");
+    b.className = "btn small" + (danger ? " danger" : ""); b.textContent = label; b.disabled = !plan;
+    b.onclick = () => path === "approvals" ? approve(b) : post(`/v1/plans/${plan.id}/${path}`, body, b);
+    $("more").append(b);
+  }
+}
+
+/* ===================== 토폴로지 ===================== */
+const anonState = (code) => code === 200 ? { k: "crit", t: "! 무인증 허용 (200)" }
+  : (code === 403 || code === 401) ? { k: "good", t: "✓ 무인증 거부 (403)" } : { k: "warn", t: "? 확인 불가" };
+const TAG = { good: ["var(--good)", 16, "var(--good-ink)"], crit: ["var(--critical)", 16, "var(--critical-ink)"], warn: ["var(--warning)", 24, "var(--warning-ink)"] };
+
+function tag(x, y, w, kind, text) {
+  const [c, pct, ink] = TAG[kind];
+  return `<rect x="${x - w}" y="${y - 12}" width="${w}" height="20" rx="5" fill="color-mix(in srgb, ${c} ${pct}%, transparent)"/>
+    <text x="${x - w / 2}" y="${y + 2}" text-anchor="middle" class="tag" style="fill:${ink}">${text}</text>`;
+}
+function dbNode(x, db, name, role, active) {
+  const w = db?.app_can_write;
+  return `<rect class="node ${active ? "active" : ""}" x="${x}" y="104" width="250" height="84" rx="10"/>
+    <text class="n-title" x="${x + 14}" y="128">${name}</text>
+    <text class="n-sub" x="${x + 14}" y="145">${role}</text>
+    <text class="n-val" x="${x + 14}" y="172">${db ? `${fmt(db.rows)}행 · seq ${fmt(db.seq)}` : "조회 실패"}</text>
+    ${db ? `<rect x="${x + 164}" y="114" width="74" height="20" rx="5" fill="${w ? "var(--accent)" : "var(--surface-2)"}"/>
+      <text x="${x + 201}" y="128" text-anchor="middle" class="tag" style="fill:${w ? "#fff" : "var(--muted)"}">${w ? "앱 쓰기 허용" : "쓰기 펜싱"}</text>` : ""}`;
+}
+function s3Node(x, name, a) {
+  return `<rect class="node ${a.k !== "good" ? "alert" : ""}" x="${x}" y="204" width="250" height="56" rx="10"/>
+    <text class="n-title" x="${x + 14}" y="227">${name}</text>
+    <text class="n-sub" x="${x + 14}" y="245">chat-attachments 버킷</text>
+    ${tag(x + 238, 232, 122, a.k, a.t)}`;
+}
+
+function renderTopo() {
+  const L = liveState, svg = $("topo");
+  if (!L) { svg.innerHTML = `<text x="500" y="150" text-anchor="middle" class="zone-sub">상태 조회 중…</text>`; return; }
+  const src = L.source.db, dst = L.target.db, w = L.writer, target = L.pgbouncer_target;
+  const fwdOn = (dst?.subscriptions || []).includes("bravo_fwd");
+  const revOn = (src?.subscriptions || []).includes("bravo_rev");
+  const fwd = src?.slots.find(s => s.name === "bravo_fwd"), rev = dst?.slots.find(s => s.name === "bravo_rev");
+  const weight = plan?.data?.shift?.weight ?? 0;
+  const loadOn = !!w?.running;
+  const toSrc = target === "pg-src", toDst = target === "pg-dst";
+
+  const dir = revOn ? "rev" : fwdOn ? "fwd" : null;
+  const lag = dir === "rev" ? rev?.lag_bytes : fwd?.lag_bytes;
+  const replPath = dir === "rev" ? "M720,108 C640,58 360,58 280,108" : "M280,108 C360,58 640,58 720,108";
+  const replLabel = dir ? `${dir === "rev" ? "← 역방향" : "정방향 →"} 논리 복제 · 지연 ${bytes(lag)}` : "복제 없음";
+  const sim = (x) => `<rect x="${x}" y="24" width="84" height="18" rx="4" fill="var(--sim-soft)"/><text x="${x + 42}" y="37" text-anchor="middle" class="tag" style="fill:var(--sim)">SIMULATED</text>`;
+
+  svg.innerHTML = `
+    <defs>
+      <marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker>
+      <marker id="arP" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--ai)"/></marker>
+    </defs>
+    <rect class="zone" x="10" y="10" width="300" height="280" rx="14"/>
+    <text class="zone-label" x="28" y="38">출발지 · AWS</text>
+    <text class="zone-sub" x="28" y="56">EKS · IAM · KMS · Secrets Manager</text>${sim(212)}
+    <rect class="zone" x="690" y="10" width="300" height="280" rx="14"/>
+    <text class="zone-label" x="708" y="38">목적지 · 온프렘</text>
+    <text class="zone-sub" x="708" y="56">RKE2 · OpenBao · ESO</text>${sim(892)}
+
+    ${dbNode(30, src, "pg-src", "출발지 DB (CNPG 역할)", toSrc)}
+    ${dbNode(720, dst, "pg-dst", "목적지 DB (CNPG 역할)", toDst)}
+    ${s3Node(30, "s3-src", anonState(L.source.anonymous_http))}
+    ${s3Node(720, "s3-dst", anonState(L.target.anonymous_http))}
+
+    <path class="edge repl ${dir ? "flow" : "off"}" d="${replPath}" ${dir ? 'marker-end="url(#arP)"' : ""}/>
+    <rect x="390" y="64" width="220" height="20" rx="10" fill="var(--surface)" stroke="var(--line)"/>
+    <text x="500" y="78" text-anchor="middle" style="font-size:11px;font-weight:600;fill:var(--ai)">${replLabel}</text>
+
+    <rect class="node" x="410" y="10" width="180" height="46" rx="10"/>
+    <text class="n-title" x="424" y="31">앱 · writer</text>
+    <text class="n-sub" x="424" y="47">${loadOn ? `부하 ${w.rate} req/s 실행 중` : "부하 중지"}</text>
+    <path class="edge ${loadOn ? "on flow" : ""}" d="M500,90 L500,128" marker-end="url(#arA)"/>
+
+    <rect class="node active" x="410" y="132" width="180" height="56" rx="10"/>
+    <text class="n-title" x="424" y="155">PgBouncer</text>
+    <text class="n-sub" x="424" y="173">앱의 유일한 DB 진입점</text>
+    <path class="edge ${toSrc ? "on" : "off"} ${toSrc && loadOn ? "flow" : ""}" d="M410,160 L282,150" ${toSrc ? 'marker-end="url(#arA)"' : ""}/>
+    <path class="edge ${toDst ? "on" : "off"} ${toDst && loadOn ? "flow" : ""}" d="M590,160 L718,150" ${toDst ? 'marker-end="url(#arA)"' : ""}/>
+
+    <text x="500" y="216" text-anchor="middle" class="zone-sub">Edge 트래픽 가중치 · SIMULATED</text>
+    <rect x="400" y="224" width="200" height="12" rx="6" fill="var(--line-strong)"/>
+    ${weight > 0 ? `<rect x="${400 + 2 * (100 - weight)}" y="224" width="${2 * weight}" height="12" rx="6" fill="var(--accent)"/>` : ""}
+    <text x="400" y="254" class="n-val">AWS ${100 - weight}%</text>
+    <text x="600" y="254" text-anchor="end" class="n-val">온프렘 ${weight}%</text>
+    <text x="500" y="282" text-anchor="middle" class="zone-sub">쓰기 DB <tspan style="font-weight:700;fill:var(--ink)">${target ?? "?"}</tspan> · 업무 쓰기를 받는 DB는 최대 1개</text>`;
+}
+
+/* ===================== 부하 ===================== */
+function renderLoad() {
+  const w = liveState?.writer;
+  $("loadState").className = "badge " + (w?.running ? "b-good" : "b-neutral");
+  $("loadState").textContent = w?.running ? `● 실행 ${w.rate} req/s` : "중지";
+  const tile = (l, v, unit) => `<div class="tile"><div class="l">${l}</div><div class="v">${v}<small>${unit || ""}</small></div></div>`;
+  $("tiles").innerHTML = w ? [
+    tile("요청", fmt(w.issued)), tile("ACK", fmt(w.acked)), tile("처리 중", fmt(w.in_flight)),
+    tile("재시도", fmt(w.retries)), tile("포기 (유실 후보)", fmt(w.gave_up)), tile("최대 쓰기 공백", fmt(w.max_gap_ms), "ms"),
+  ].join("") : `<div class="empty" style="grid-column:1/-1">writer 응답 없음</div>`;
+
+  const now = Date.now();
+  if (w) {
+    const v = lastAck != null && w.acked >= lastAck && lastAckTs ? (w.acked - lastAck) / ((now - lastAckTs) / 1000) : 0;
+    ackHistory.push({ t: now, v: w.running || v ? v : 0 });
+    lastAck = w.acked; lastAckTs = now;
+  }
+  while (ackHistory.length && now - ackHistory[0].t > 90000) ackHistory.shift();
+  drawSpark();
+}
+function drawSpark() {
+  const pts = ackHistory, svg = $("spark");
+  if (pts.length < 2) { svg.innerHTML = ""; return; }
+  const max = Math.max(5, ...pts.map(p => p.v)), t0 = Date.now() - 90000;
+  const xy = pts.map(p => [((p.t - t0) / 90000) * 320, 52 - (p.v / max) * 46]);
+  const line = xy.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + "," + p[1].toFixed(1)).join("");
+  svg.innerHTML = `<line x1="0" y1="52" x2="320" y2="52" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+    <path d="${line} L${xy.at(-1)[0]},52 L${xy[0][0]},52 Z" fill="color-mix(in srgb, var(--accent) 12%, transparent)"/>
+    <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+    <line id="sparkX" x1="0" x2="0" y1="0" y2="56" stroke="var(--muted)" stroke-width="1" vector-effect="non-scaling-stroke" style="display:none"/>`;
+}
+$("spark").addEventListener("mousemove", (e) => {
+  if (ackHistory.length < 2) return;
+  const r = e.currentTarget.getBoundingClientRect(), x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+  const t = Date.now() - 90000 + x * 90000;
+  const p = ackHistory.reduce((a, b) => Math.abs(b.t - t) < Math.abs(a.t - t) ? b : a);
+  const tip = $("sparkTip"); tip.style.display = "block"; tip.style.left = `${x * 100}%`;
+  tip.textContent = `${new Date(p.t).toLocaleTimeString("ko-KR", { hour12: false })} · ${p.v.toFixed(1)} ACK/s`;
+  const l = document.getElementById("sparkX"); if (l) { l.style.display = ""; l.setAttribute("x1", x * 320); l.setAttribute("x2", x * 320); }
+});
+$("spark").addEventListener("mouseleave", () => { $("sparkTip").style.display = "none"; const l = document.getElementById("sparkX"); if (l) l.style.display = "none"; });
+
+/* ===================== 상세 탭 ===================== */
+const TABS = [["inventory", "수집 · 의존성"], ["gate", "원본 대조 게이트"], ["proposal", "AI 제안 · 검증"], ["approval", "승인"], ["cutover", "컷오버"]];
+const TAB_FOR_STATE = { COLLECT: "inventory", ANALYZE: "inventory", PROPOSE: "proposal", REHEARSE: "proposal", GATE: "gate",
+  AWAIT_APPROVAL: "approval", SHIFT: "cutover", CUTOVER: "cutover", WATCH: "cutover", DONE: "cutover",
+  FAILBACK: "cutover", DONE_ROLLED_BACK: "cutover", SAFE_HOLD: "cutover", NEEDS_HUMAN: "proposal" };
+
+function renderTabs() {
+  if (plan && plan.state !== lastState) {   // 상태가 바뀌면 관련 탭으로 이동 (사용자가 고른 탭은 다음 전이까지 유지)
+    lastState = plan.state;
+    if (!tabPinned) activeTab = plan.state === "REHEARSE" && !plan.data.attempts ? "inventory" : TAB_FOR_STATE[plan.state];
+    tabPinned = false;
+  }
+  const counts = { proposal: (plan?.data.attempts || []).length + (plan?.data.blocked || []).length };
+  $("tabs").innerHTML = TABS.map(([id, label]) => `<button class="tab ${id === activeTab ? "on" : ""}" data-t="${id}">${label}${counts[id] ? `<span class="badge b-neutral">${counts[id]}</span>` : ""}</button>`).join("");
+  $("tabs").querySelectorAll(".tab").forEach(b => b.onclick = () => { activeTab = b.dataset.t; tabPinned = true; renderTabs(); });
+  const fn = { inventory: panelInventory, gate: panelGate, proposal: panelProposal, approval: panelApproval, cutover: panelCutover }[activeTab];
+  $("panel").innerHTML = plan ? fn() : `<div class="empty">계획을 만들면 단계별 결과가 여기에 표시됩니다.</div>`;
+  $("approveBtn")?.addEventListener("click", (e) => approve(e.currentTarget));
+}
+
+const verdictBadge = (v) => v === "PASS" ? `<span class="badge b-good">✓ PASS</span>` : v === "BLOCK" ? `<span class="badge b-crit">✕ BLOCK</span>` : `<span class="badge b-warn">? ${esc(v)}</span>`;
+const okBadge = (ok, label) => ok ? `<span class="badge b-good">✓ ${label}</span>` : `<span class="badge b-crit">✕ ${label}</span>`;
+
+function panelInventory() {
+  const c = plan.data.collect, a = plan.data.analyze;
+  if (!c) return `<div class="empty">수집 전</div>`;
+  const deps = (a?.dependencies || []).map(d => {
+    const by = d.classified_by === "ai" ? `<span class="badge b-ai">✦ AI · ${esc(d.confidence)}</span>`
+             : d.classified_by === "none" ? `<span class="badge b-warn">? 사람 확인</span>` : `<span class="badge b-neutral">규칙</span>`;
+    return `<tr><td style="white-space:nowrap"><b>${esc(d.grade)}</b></td><td class="mono" style="white-space:nowrap">${esc(d.file)}:${d.line}</td>
+      <td>${by} ${esc(d.desc)}${d.reason ? `<div class="reason">${esc(d.reason)}</div>` : ""}</td></tr>`;
+  }).join("");
+  const ids = Object.entries(c.identities).map(([k, v]) => `<tr><td class="mono">${esc(k)}</td><td class="mono">${esc(v.join(", "))}</td></tr>`).join("");
+  return `<div class="sec">의존성 · 정적 탐지, 애매한 항목만 AI 분류 (사람이 확인할 제안)</div>
+    <table><tr><th>등급</th><th>위치</th><th>내용</th></tr>${deps}</table>
+    <div class="two">
+      <div><div class="sec">출발지 버킷 ${esc(c.bucket)} 접근 주체</div><table><tr><th>주체</th><th>권한</th></tr>${ids}</table></div>
+      <div><div class="sec">출발지 DB</div><dl class="kv"><dt>messages</dt><dd class="mono">${fmt(c.messages_rows)}행</dd>
+        <dt>스키마 해시</dt><dd class="mono">${esc(c.schema_hash.slice(0, 12))}</dd><dt>publication</dt><dd class="mono">${esc(c.publications.join(", "))}</dd></dl>
+        <div class="sec">클라우드 자원 <span class="badge b-sim">SIMULATED</span></div>
+        <div class="mono muted">${c.simulated_inventory.map(i => `${esc(i.kind)}: ${esc(i.id)}`).join("<br>")}</div></div>
+    </div>`;
+}
+
+function panelGate() {
+  const g = plan.data.gate;
+  if (!g) return `<div class="empty">아직 게이트를 실행하지 않았습니다.</div>`;
+  const rows = g.questions.map(q => `<tr><td class="mono">${q.id}</td><td>${esc(q.question)}<div class="evidence">${esc(JSON.stringify(q.evidence))}</div></td>
+    <td>${esc(q.source)}</td><td>${esc(q.target)}</td><td>${verdictBadge(q.verdict)}</td></tr>`).join("");
+  return `<div class="verdict-row"><span class="verdict-big">${g.verdict}</span>${verdictBadge(g.verdict)}
+      <span class="mono muted">${g.gate_id}</span><span class="spacer"></span><span class="muted" style="font-size:12px">LLM 미사용 · 같은 입력이면 같은 판정 · UNKNOWN은 불합격</span></div>
+    <table><tr><th></th><th>질문 · 근거</th><th>원본 (AWS)</th><th>대상 (온프렘)</th><th>판정</th></tr>${rows}</table>`;
+}
+
+function panelProposal() {
+  const d = plan.data, attempts = d.attempts || [], blocked = d.blocked || [];
+  if (!attempts.length && !blocked.length) return `<div class="empty">게이트 BLOCK 뒤 "AI 보완 · 리허설"을 실행하면 제안서와 검증 과정이 표시됩니다.</div>`;
+  let n = 0;
+  const att = attempts.map(a => {
+    const who = a.injected ? `<span class="badge b-sim">주입</span>` : `<span class="badge b-ai">✦ AI 시도 ${++n}</span>`;
+    const p = a.proposal;
+    return `<div class="attempt"><div class="attempt-h">${who}<span class="spacer"></span>${a.violations.length ? `<span class="badge b-crit">✕ 거부 · 사유를 AI에 돌려줌</span>` : `<span class="badge b-good">✓ 스키마 · 린트 통과</span>`}</div>
+      <div class="mono">${esc(p.target?.type)} → <b>${esc(p.target?.name)}</b> · anonymous=${esc(p.proposal?.anonymous)} · principal=${esc(p.proposal?.principal)} · actions=[${esc((p.proposal?.actions || []).join(", "))}]</div>
+      ${a.violations.length ? `<ul class="clean reason">${a.violations.map(v => `<li>${esc(v)}</li>`).join("")}</ul>` : `<div class="reason">${esc(p.rationale)}</div>`}</div>`;
+  }).join("");
+  const r = d.rehearsal?.checks && d.rehearsal?.applied ? d.rehearsal : null;
+  const chain = r ? `<div class="sec">검증 체인</div><div class="chain">
+      ${okBadge(true, "스키마")}<span class="arrow">→</span>${okBadge(true, "린트")}<span class="arrow">→</span>
+      ${okBadge(r.checks.anonymous_denied, "리허설: 무인증 거부")}<span class="arrow">→</span>${okBadge(r.checks.object_intact, "리허설: 객체 보존")}<span class="arrow">→</span>
+      ${okBadge(r.applied.anonymous_http === 403, `목적지 반영: ${r.applied.anonymous_http}`)}<span class="arrow">→</span>${okBadge(r.applied.app_read_ok, "앱 자격 읽기")}
+      <span class="arrow">→</span>${d.gate?.verdict === "PASS" ? okBadge(true, "게이트 재대조") : `<span class="badge b-neutral">게이트 재대조 대기</span>`}</div>` : "";
+  const blk = blocked.map(b => `<div class="attempt"><div class="attempt-h">${b.injected ? `<span class="badge b-sim">주입</span>` : ""}<span class="badge b-crit">⛔ 도구 계층 차단</span></div>
+      <div class="mono">${esc(b.tool)} ${esc(JSON.stringify(b.args))}</div><div class="reason">${esc(b.reason)}</div></div>`).join("");
+  return `<div class="sec">제안서 · 스키마 검증 → 정책 린트</div>${att}${chain}${blk ? `<div class="sec">도구 계층 차단 기록</div>${blk}` : ""}`;
 }
 
 function approvalBody() {
   const r = plan?.data.approval_request || {};
   return { approver: "operator", plan_id: r.plan_id, proposal_digest: r.proposal_digest, gate_id: r.gate_id };
 }
+function approve(btn) { return post(`/v1/plans/${plan.id}/approvals`, approvalBody(), btn); }
 
-const okMark = (v) => v ? '<span class="badge b-pass">OK</span>' : '<span class="badge b-block">FAIL</span>';
-
-function renderProposal() {
-  const d = plan?.data || {}, el = $("proposal");
-  const attempts = d.attempts || [], blocked = d.blocked || [];
-  if (!attempts.length && !blocked.length) { el.className = "placeholder"; el.textContent = '게이트 BLOCK 뒤 "AI 보완 · 리허설"'; return; }
-  el.className = "";
-  const rows = attempts.map((a, i) => `<tr><td>${a.injected ? '<span class="badge b-sim">주입</span>' : "AI #" + (i + 1)}</td>
-    <td class="mono">${escape(JSON.stringify(a.proposal.proposal))}<br>target=${escape(a.proposal.target.name)}</td>
-    <td>${a.violations.length ? '<span class="badge b-block">거부</span>' + a.violations.map(escape).join("<br>") : '<span class="badge b-pass">통과</span>'}</td></tr>`).join("");
-  const r = d.rehearsal && d.rehearsal.checks && d.rehearsal.applied ? d.rehearsal : null;
-  const reh = r ? `<div class="sub">리허설 버킷 검증</div>
-      <div>무인증 거부 ${okMark(r.checks.anonymous_denied)} 객체 보존 ${okMark(r.checks.object_intact)}</div>
-      <div class="sub">목적지 반영</div>
-      <div>무인증 HTTP <span class="mono">${r.applied.anonymous_http}</span> · 앱 자격 읽기 ${okMark(r.applied.app_read_ok)}</div>` : "";
-  const blk = blocked.map(b => `<div class="mono">${b.injected ? '<span class="badge b-sim">주입</span>' : ""}<span class="badge b-block">차단</span>${escape(b.tool)} ${escape(JSON.stringify(b.args))}<br>${escape(b.reason)}</div>`).join("");
-  const p = attempts.filter(a => !a.violations.length && !a.injected).pop();
-  el.innerHTML = `<div class="sub">제안서 검증 (스키마 → 린트)</div>
-    <table><tr><th></th><th>제안</th><th>결과</th></tr>${rows}</table>
-    ${p ? `<div class="sub">채택 제안 근거 (risk: ${p.proposal.risk})</div><div>${escape(p.proposal.rationale)}</div>` : ""}
-    ${reh}${blk ? '<div class="sub">도구 계층 차단 기록</div>' + blk : ""}`;
+function panelApproval() {
+  const r = plan.data.approval_request, a = plan.data.approval;
+  if (!r) return `<div class="empty">게이트가 PASS하면 승인 요청이 만들어집니다.</div>`;
+  const s = r.summary, li = (xs) => xs.map(x => `<li>${esc(x)}</li>`).join("");
+  return `${s ? `<div class="sec"><span class="badge b-ai">✦ AI 요약</span> 사람 확인용 · 승인 여부는 권하지 않음</div>
+      <div>${esc(s.summary)}</div>
+      <div class="two" style="margin-top:4px"><div><div class="sec">변경</div><ul class="clean">${li(s.changes)}</ul></div>
+        <div><div class="sec">위험</div><ul class="clean">${li(s.risks)}</ul></div></div>`
+      : `<div class="empty">AI 요약 없음 (승인은 결속 값만으로 가능)</div>`}
+    <div class="sec">결속 값 · 코드가 표시하고 검증</div>
+    <div class="bind"><dl class="kv"><dt>plan</dt><dd class="mono">${esc(r.plan_id)}</dd><dt>제안서 digest</dt><dd class="mono">${esc(r.proposal_digest)}</dd>
+      <dt>게이트</dt><dd class="mono">${esc(r.gate_id)}</dd><dt>만료</dt><dd class="mono">${clock(r.expires_at)}</dd></dl></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap">
+      ${a ? `<span class="badge b-good">✓ 승인됨</span><span class="muted">${esc(a.approver)} · ${clock(a.approved_at)}</span>`
+          : plan.state === "AWAIT_APPROVAL" ? `<button class="btn primary" id="approveBtn">위 결속 값으로 승인</button><span class="muted" style="font-size:12px">제안서나 게이트 결과가 바뀌면 이 승인은 거부됩니다.</span>` : ""}
+    </div>`;
 }
 
-function renderApproval() {
-  const r = plan?.data.approval_request, a = plan?.data.approval, el = $("approval");
-  if (!r) { el.className = "placeholder"; el.textContent = "게이트 PASS 뒤 표시"; return; }
-  el.className = "";
-  const s = r.summary;
-  const list = (xs) => xs.map(x => `<li>${escape(x)}</li>`).join("");
-  const exp = new Date(r.expires_at * 1000).toLocaleTimeString("ko-KR", { hour12: false });
-  el.innerHTML = `
-    ${s ? `<div class="sub">AI 요약 (사람 확인용)</div><div>${escape(s.summary)}</div>
-      <div class="sub">변경</div><ul>${list(s.changes)}</ul><div class="sub">위험</div><ul>${list(s.risks)}</ul>`
-        : '<div class="placeholder">AI 요약 없음</div>'}
-    <div class="sub">결속 값 (코드가 표시 · 검증)</div>
-    <div class="mono">plan ${r.plan_id} · proposal ${r.proposal_digest} · gate ${r.gate_id} · 만료 ${exp}</div>
-    <div class="sub">상태</div>
-    <div>${a ? `<span class="badge b-pass">승인됨</span>${escape(a.approver)}` : "승인 대기"}</div>`;
+function panelCutover() {
+  const d = plan.data;
+  if (!d.shift && !d.cutover && !d.failback) return `<div class="empty">승인 뒤 SHIFT · 컷오버 결과가 표시됩니다.</div>`;
+  const pre = (o) => `<pre class="mono" style="white-space:pre-wrap;margin:0">${esc(JSON.stringify(o, null, 2))}</pre>`;
+  return `${d.shift ? `<div class="sec">트래픽 전환 <span class="badge b-sim">SIMULATED</span></div><div>Edge 가중치 온프렘 ${d.shift.weight}%</div>` : ""}
+    ${d.cutover ? `<div class="sec">컷오버</div>${pre(d.cutover)}` : ""}
+    ${d.failback ? `<div class="sec">되돌리기</div>${pre(d.failback)}` : ""}`;
 }
 
-const badge = (v) => `<span class="badge ${v === "PASS" ? "b-pass" : "b-block"}">${v}</span>`;
-
-function renderInventory() {
-  const c = plan?.data.collect, a = plan?.data.analyze, el = $("inventory");
-  if (!c) { el.className = "placeholder"; el.textContent = "계획을 만들면 표시"; return; }
-  el.className = "";
-  const ids = Object.entries(c.identities).map(([k, v]) => `<div class="mono">${k}: ${v.join(", ")}</div>`).join("");
-  const sim = c.simulated_inventory.map(i => `${i.kind} <span class="mono">${i.id}</span>`).join(" · ");
-  const deps = (a?.dependencies || []).map(d => {
-    const by = d.classified_by === "ai" ? `<span class="badge b-ai">AI · ${d.confidence}</span>`
-             : d.classified_by === "none" ? '<span class="badge b-block">사람 확인</span>' : "";
-    const why = d.reason ? `<div class="placeholder">${escape(d.reason)}</div>` : "";
-    return `<tr><td>${by}${d.grade}</td><td class="mono">${d.file}:${d.line}</td><td>${escape(d.desc)}${why}</td></tr>`;
-  }).join("");
-  el.innerHTML = `
-    <div class="sub">출발지 버킷 <span class="mono">${c.bucket}</span> 접근 주체</div>${ids}
-    <div class="sub">출발지 DB: messages ${c.messages_rows}행 · 스키마 <span class="mono">${c.schema_hash.slice(0, 8)}</span></div>
-    <div class="sub"><span class="badge b-sim">SIMULATED</span>${sim}</div>
-    <div class="sub">의존성 (정적 탐지)</div>
-    <table><tr><th>등급</th><th>위치</th><th>내용</th></tr>${deps}</table>`;
+/* ===================== 이벤트 ===================== */
+const FILTERS = [["all", "전체"], ["state", "상태"], ["ai", "AI"], ["bad", "차단 · 오류"]];
+function evKind(e) {
+  if (e.type === "state_changed" || e.type === "plan_created") return ["state", "→"];
+  if (["transition_rejected", "tool_blocked", "error", "ai_error"].includes(e.type) || e.data?.ok === false) return ["bad", "✕"];
+  if (e.type.startsWith("ai_") || e.type === "proposal_checked") return ["ai", "✦"];
+  if (e.type === "gate_result") return [e.data?.verdict === "PASS" ? "good" : "bad", "="];
+  if (e.type === "approved") return ["good", "✓"];
+  return ["", "·"];
+}
+function renderFilters() {
+  $("filters").innerHTML = FILTERS.map(([k, l]) => `<button class="chipf ${k === feedFilter ? "on" : ""}" data-k="${k}">${l}</button>`).join("");
+  $("filters").querySelectorAll(".chipf").forEach(b => b.onclick = () => { feedFilter = b.dataset.k; renderFilters(); renderFeed(); });
+}
+function renderFeed() {
+  const rows = events.slice().reverse().filter(e => feedFilter === "all" || evKind(e)[0] === feedFilter);
+  $("feed").innerHTML = rows.length ? rows.map(e => {
+    const [k, ic] = evKind(e);
+    const tags = (e.data?.stub ? `<span class="badge b-neutral">STUB</span> ` : "") + (e.data?.simulated ? `<span class="badge b-sim">SIMULATED</span> ` : "") + (e.data?.injected ? `<span class="badge b-sim">주입</span> ` : "");
+    return `<div class="ev ${k}"><div class="ic">${ic}</div><div><div class="meta">${clock(e.ts)} · #${e.id} · ${esc(e.type)}</div><div class="msg">${tags}${esc(e.message)}</div></div></div>`;
+  }).join("") : `<div class="empty">이벤트 없음</div>`;
 }
 
-function renderGate() {
-  const g = plan?.data.gate, el = $("gate");
-  if (!g) { el.className = "placeholder"; el.textContent = "게이트 실행 전"; return; }
-  el.className = "";
-  const rows = g.questions.map(q => `<tr><td class="mono">${q.id}</td><td>${escape(q.question)}</td>
-    <td>${escape(q.source)}</td><td>${escape(q.target)}</td><td>${badge(q.verdict)}</td></tr>`).join("");
-  el.innerHTML = `<div class="verdict">${badge(g.verdict)} <span class="mono">${g.gate_id}</span></div>
-    <table><tr><th></th><th>질문</th><th>원본 (AWS)</th><th>대상 (온프렘)</th><th>판정</th></tr>${rows}</table>`;
+/* ===================== 데이터 흐름 ===================== */
+function renderAll() {
+  const bad = ["SAFE_HOLD", "NEEDS_HUMAN", "FAILBACK"].includes(plan?.state);
+  $("planPill").innerHTML = plan ? `<span class="mono">${plan.id}</span><span class="badge ${bad ? "b-crit" : "b-neutral"}">${plan.state}</span>` : "계획 없음";
+  renderPipe(); renderNext(); renderMore(); renderTabs(); renderTopo();
 }
-
-function log(e) {
-  const d = document.createElement("div");
-  d.className = e.type;
-  const t = new Date(e.ts * 1000).toLocaleTimeString("ko-KR", { hour12: false });
-  const badges = (e.data?.stub ? '<span class="badge b-stub">STUB</span>' : "")
-               + (e.data?.simulated ? '<span class="badge b-sim">SIMULATED</span>' : "");
-  d.innerHTML = `<span class="t">${t} #${e.id ?? "-"}</span>${badges}<b>${e.type}</b> ${escape(e.message || "")}`;
-  $("log").prepend(d);
+let planTimer = null;
+function loadPlan(id) {
+  clearTimeout(planTimer);
+  planTimer = setTimeout(async () => { plan = await (await fetch(`/v1/plans/${id}`)).json(); renderAll(); }, 60);
 }
-const escape = (s) => s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-
-async function loadPlan(id) {
-  plan = await (await fetch(`/v1/plans/${id}`)).json();
-  render();
-}
-
 function subscribe(id) {
-  if (source) source.close();
-  $("log").innerHTML = "";
+  source?.close(); events = []; renderFeed();
   source = new EventSource(`/v1/plans/${id}/events`);
-  source.onmessage = (m) => { log(JSON.parse(m.data)); loadPlan(id); };
+  source.onopen = () => { $("connDot").className = "dot on"; $("connText").textContent = "실시간 연결"; };
+  source.onerror = () => { $("connDot").className = "dot"; $("connText").textContent = "재연결 중"; };
+  source.onmessage = (m) => { events.push(JSON.parse(m.data)); renderFeed(); loadPlan(id); };
+}
+async function newPlan(btn) {
+  const p = await post("/v1/plans", {}, btn);
+  if (p.id) { lastState = null; tabPinned = false; subscribe(p.id); loadPlan(p.id); }
+}
+async function pollLive() {
+  try { liveState = await (await fetch("/v1/live")).json(); } catch { liveState = null; }
+  renderTopo(); renderLoad();
 }
 
-async function post(path, body) {
-  const r = await fetch(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
-    body: JSON.stringify(body),
-  });
-  const j = await r.json();
-  if (!r.ok) log({ type: "error", ts: Date.now() / 1000, message: `${r.status} ${j.detail || j.error}` });
-  return j;
-}
-
-$("newPlan").onclick = async () => {
-  if (source) source.close();
-  const p = await post("/v1/plans", {});
-  if (p.id) { subscribe(p.id); await loadPlan(p.id); }
-};
+$("newPlan").onclick = (e) => newPlan(e.currentTarget);
+$("loadStart").onclick = (e) => post("/v1/load/start", { rate: Number($("rate").value) }, e.currentTarget).then(pollLive);
+$("loadStop").onclick = (e) => post("/v1/load/stop", {}, e.currentTarget).then(pollLive);
 
 (async () => {
   meta = await (await fetch("/v1/meta")).json();
-  $("aiMode").textContent = `AI ${meta.ai_mode} · ${meta.model}`;
-  if (meta.current_plan_id) { subscribe(meta.current_plan_id); await loadPlan(meta.current_plan_id); }
-  else render();
+  $("aiPill").innerHTML = `<span class="badge ${meta.ai_mode === "live" ? "b-ai" : "b-sim"}">AI ${meta.ai_mode}</span><span class="mono">${meta.model}</span>`;
+  renderFilters(); renderAll(); renderLoad();
+  if (meta.current_plan_id) { subscribe(meta.current_plan_id); loadPlan(meta.current_plan_id); }
+  pollLive(); setInterval(pollLive, 1500);
 })();
 </script>
 </body>

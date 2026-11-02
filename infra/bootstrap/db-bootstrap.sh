@@ -19,3 +19,7 @@ if [ "$exists" = "0" ]; then
        PUBLICATION bravo_pub"
   echo "[bootstrap] subscription bravo_fwd created on pg-dst"
 fi
+
+# 업무 쓰기를 받는 DB는 최대 하나: 목적지는 컷오버 전까지 앱 쓰기 권한이 없다.
+psql -h pg-dst -U postgres -d chat -v ON_ERROR_STOP=1 -qc "REVOKE INSERT ON messages FROM chat_app"
+echo "[bootstrap] pg-dst: chat_app INSERT revoked (fenced until cutover)"
