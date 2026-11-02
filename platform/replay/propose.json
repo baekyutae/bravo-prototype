@@ -18,8 +18,8 @@
         "List"
       ]
     },
-    "rationale": "AWS 원본은 익명 읽기를 거부하지만 SeaweedFS에는 anonymous 아이덴티티에 chat-attachments Read가 열려 있어 이를 제거(deny)해야 합니다. 첨부 객체 접근은 chat_app 전용 주체에 Read, Write, List만 부여해 원본과 같은 보호 수준을 재현합니다.",
-    "risk": "low"
+    "rationale": "AWS 원본은 인증 없는 읽기를 거부하지만 SeaweedFS에는 anonymous 아이덴티티에 Read:chat-attachments가 부여되어 있어, anonymous 권한을 제거해 익명 접근을 차단해야 합니다. 앱 접근은 chat_app 아이덴티티에 chat-attachments 버킷 한정 Read, Write, List만 유지해 원본과 동일한 최소 권한을 재현합니다.",
+    "risk": "medium"
   },
   {
     "step": "translate",
@@ -40,7 +40,7 @@
         "List"
       ]
     },
-    "rationale": "출발지 AWS는 인증 없는 읽기를 거부하므로 목적지 SeaweedFS의 anonymous 아이덴티티에 부여된 chat-attachments Read 권한을 제거해 익명 접근을 차단해야 한다. 접근은 chat_app 주체에게만 chat-attachments 버킷에 대한 Read, Write, List 권한으로 한정한다.",
+    "rationale": "AWS 원본은 익명 접근을 거부하므로 SeaweedFS의 chat-attachments 버킷에서 anonymous 신원의 Read 권한을 제거하고 거부로 설정한다. 첨부 객체 접근은 chat_app 주체에게만 Read, Write, List 최소 권한으로 허용한다.",
     "risk": "low"
   }
 ]
