@@ -38,7 +38,7 @@
 - `POST /messages` (헤더 `Idempotency-Key`, 같은 키는 한 번만 저장), `GET /messages?after=<id>`.
 - DB 접속은 `pgbouncer`만 가리킨다. 트랜잭션은 단건 INSERT.
 - 첨부는 boto3 S3 클라이언트, 엔드포인트는 환경 변수.
-- Secrets Manager 조회 코드는 흔적만 둔다(의존성 탐지용, 실행 안 함).
+- Secrets Manager 조회 코드와 CloudWatch 지표 전송 코드는 흔적만 둔다(의존성 탐지용, 실행 안 함). CloudWatch는 규칙으로 등급을 정할 수 없는 애매한 항목 예시다.
 - 제외: WebSocket, QR, 채팅 UI.
 
 `writer`: 일정 속도로 `POST /messages`를 호출하고, 실패하면 같은 멱등 키로 재시도한다. 논리 요청 ID를 기록해 DB와 대조한다(유실·중복 건수, 최대 쓰기 공백).
@@ -61,13 +61,13 @@ WATCH: 목적지 장애 → FAILBACK → DONE_ROLLED_BACK
 | 단계 | 내용 | 실제 / 모의 |
 |---|---|---|
 | COLLECT | 출발지 버킷 접근 설정, 스키마 수집 | 실제 |
-| ANALYZE | 앱 소스 정적 탐지 → 의존성 3등급(설정 교체 / 어댑터 추가 / 코드 수정) | 실제(정규식) |
+| ANALYZE | 앱 소스 정적 탐지 → 의존성 3등급(설정 교체 / 어댑터 추가 / 코드 수정). 규칙이 등급을 못 정한 항목만 Claude가 분류하고 이유를 씀 | 실제(정규식) + 실제 호출 |
 | PROPOSE 1회차 | 규칙 기반 기본 이전안: 목적지 버킷 생성만, 접근 설정 미번역 | 실제 |
 | GATE 1차 | 아래 게이트 질문 → G1에서 **BLOCK** | 실제 |
 | PROPOSE 2회차 | Claude가 접근 설정 번역 제안서 작성 | 실제 호출(`AI_MODE=replay`면 녹화본) |
 | REHEARSE | 스키마 검증 → 정책 린트 → 리허설 버킷에 적용 → 무인증 읽기 재시험 | 실제 |
 | GATE 재대조 | 실제 목적지 버킷에 적용 후 재질문 → **PASS** | 실제 |
-| AWAIT_APPROVAL | 결속 값(plan_id, 제안서 digest, 게이트 결과 ID, 만료) 표시 후 승인 | 실제 |
+| AWAIT_APPROVAL | Claude가 승인 요약 작성(사람 확인용). 결속 값(plan_id, 제안서 digest, 게이트 결과 ID, 만료)은 코드가 표시하고 검증 | 실제 |
 | SHIFT | 가중치 10 → 50 → 100% 표시 | SIMULATED |
 | CUTOVER | 6절 순서 | 실제 |
 | WATCH → FAILBACK | 장애 주입 버튼(트리거는 모의) → 역방향 복제로 되돌리기 | 트리거 SIMULATED, 절차 실제 |
@@ -98,14 +98,24 @@ WATCH: 목적지 장애 → FAILBACK → DONE_ROLLED_BACK
 - 1~5단계 실패: ABORT_PRE_WRITE. 6단계 이후 실패: FAILBACK. 원격 상태 불명: SAFE_HOLD.
 - 되돌리기는 방향만 바꿔 같은 순서로 진행하고 영수증을 `direction=failback`으로 남긴다.
 
-## 7. AI (S2)
+## 7. AI
 
-- 모델은 `.env`의 `ANTHROPIC_MODEL`(claude-sonnet-5-5). 구조화 출력으로 제안서 JSON 1개를 받는다.
-- 입력: G1 판정, 출발지·목적지 접근 설정. 출력 스키마는 설계 문서 8.3 예시를 따른다(`step, source, target, proposal, rationale, risk`).
+설계 문서 8.3의 에이전트 역할 중 3개를 넣는다.
+
+| 역할 | 단계 | 2×2 위치 | 검증 |
+|---|---|---|---|
+| 애매한 의존성 분류 | ANALYZE | AI 제안 + 사람 판단 | 스키마 검증, 등급은 3개 중 하나만 허용 |
+| 번역 제안서 (버킷 접근 설정) | PROPOSE | AI 시도, 코드가 합격선 고정 | 스키마 → 린트 → 리허설 → 게이트 |
+| 승인 요약 | AWAIT_APPROVAL | AI 작성 + 사람 확인 | 결속 값은 코드가 따로 표시 |
+
+뺀 역할: 실패 원인 추정, 사후 리포트 초안, 교차 검토(P1).
+
+- 모델은 `.env`의 `ANTHROPIC_MODEL`(claude-sonnet-5-5). 모두 구조화 출력(JSON 스키마)으로 받는다.
+- 번역 제안서: 입력은 G1 판정과 출발지·목적지 접근 설정. 출력은 설계 문서 8.3 예시 형식(`step, source, target, proposal, rationale, risk`).
 - 정책 린트: 와일드카드 principal 금지, `anonymous`는 `deny`만 허용, action은 허용 목록 안에서만.
-- 도구 계층: 에이전트 호출은 화이트리스트를 거친다. 파괴적 명령(버킷 삭제 등)은 차단하고 기록한다. 시연에서는 차단 장면을 버튼으로 주입하며, 화면에 주입했다고 표시한다.
+- 도구 계층: 에이전트 요청은 화이트리스트를 거친다. 파괴적 명령(버킷 삭제 등)은 차단하고 기록한다. 시연에서는 차단 장면을 버튼으로 주입하며, 화면에 주입했다고 표시한다.
 - 재시도: 검증 실패 시 사유를 넣어 다시 요청하고, 3회를 넘기면 NEEDS_HUMAN.
-- `AI_MODE=live|replay`. replay는 저장된 응답을 쓴다.
+- `AI_MODE=live|replay`. live 응답은 저장해 두고, replay는 저장된 응답을 쓴다.
 
 ## 8. API
 
