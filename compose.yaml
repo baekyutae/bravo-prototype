@@ -1,0 +1,88 @@
+# Team Bravo 데모: 출발지(AWS 역할)와 목적지(온프렘 역할)를 로컬 컨테이너로 대체한다.
+# 비밀번호는 데모 전용 고정값이다.
+name: bravo
+
+x-pg: &pg
+  image: postgres:16
+  command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=10", "-c", "max_wal_senders=10"]
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U postgres -d chat"]
+    interval: 2s
+    timeout: 3s
+    retries: 30
+
+x-s3: &s3
+  image: chrislusf/seaweedfs:latest
+  command: ["server", "-dir=/data", "-s3", "-ip.bind=0.0.0.0", "-master.volumeSizeLimitMB=64", "-volume.max=5"]
+  healthcheck:
+    test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8888/ || exit 1"]
+    interval: 3s
+    timeout: 3s
+    retries: 30
+
+services:
+  # ---- 출발지 (AWS 역할) ----
+  pg-src:
+    <<: *pg
+    environment: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: chat }
+    volumes:
+      - ./infra/postgres/00-roles.sql:/docker-entrypoint-initdb.d/00-roles.sql:ro
+      - ./infra/postgres/10-schema.sql:/docker-entrypoint-initdb.d/10-schema.sql:ro
+      - ./infra/postgres/20-seed-src.sql:/docker-entrypoint-initdb.d/20-seed-src.sql:ro
+    ports: ["15432:5432"]
+
+  s3-src:
+    <<: *s3
+    hostname: s3-src
+    ports: ["18333:8333"]
+
+  # ---- 목적지 (온프렘 역할) ----
+  pg-dst:
+    <<: *pg
+    environment: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: chat }
+    volumes:
+      - ./infra/postgres/00-roles.sql:/docker-entrypoint-initdb.d/00-roles.sql:ro
+      - ./infra/postgres/10-schema.sql:/docker-entrypoint-initdb.d/10-schema.sql:ro
+    ports: ["25432:5432"]
+
+  s3-dst:
+    <<: *s3
+    hostname: s3-dst
+    ports: ["28333:8333"]
+
+  # ---- 앱의 DB 진입점 ----
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    depends_on:
+      db-bootstrap: { condition: service_completed_successfully }
+    volumes:
+      - ./infra/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./infra/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+      - pgbouncer-target:/etc/pgbouncer/target
+    ports: ["6432:6432"]
+
+  # ---- 사전 준비 (한 번 실행 후 종료) ----
+  db-bootstrap:
+    image: postgres:16
+    depends_on:
+      pg-src: { condition: service_healthy }
+      pg-dst: { condition: service_healthy }
+    entrypoint: ["sh", "/bootstrap/db-bootstrap.sh"]
+    volumes:
+      - ./infra/bootstrap:/bootstrap:ro
+      - pgbouncer-target:/target
+
+  s3-src-init:
+    image: chrislusf/seaweedfs:latest
+    depends_on: { s3-src: { condition: service_healthy } }
+    entrypoint: ["sh", "/bootstrap/s3-init.sh", "s3-src", "closed"]
+    volumes: ["./infra/bootstrap:/bootstrap:ro"]
+
+  s3-dst-init:
+    image: chrislusf/seaweedfs:latest
+    depends_on: { s3-dst: { condition: service_healthy } }
+    entrypoint: ["sh", "/bootstrap/s3-init.sh", "s3-dst", "open"]
+    volumes: ["./infra/bootstrap:/bootstrap:ro"]
+
+volumes:
+  pgbouncer-target:
