@@ -24,6 +24,7 @@ services:
   # ---- 출발지 (AWS 역할) ----
   pg-src:
     <<: *pg
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=10", "-c", "max_wal_senders=10", "-c", "cluster_name=pg-src"]
     environment: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: chat }
     volumes:
       - ./infra/postgres/00-roles.sql:/docker-entrypoint-initdb.d/00-roles.sql:ro
@@ -39,6 +40,7 @@ services:
   # ---- 목적지 (온프렘 역할) ----
   pg-dst:
     <<: *pg
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=10", "-c", "max_wal_senders=10", "-c", "cluster_name=pg-dst"]
     environment: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: chat }
     volumes:
       - ./infra/postgres/00-roles.sql:/docker-entrypoint-initdb.d/00-roles.sql:ro
@@ -83,6 +85,23 @@ services:
     depends_on: { s3-dst: { condition: service_healthy } }
     entrypoint: ["sh", "/bootstrap/s3-init.sh", "s3-dst", "open"]
     volumes: ["./infra/bootstrap:/bootstrap:ro"]
+
+  # ---- 이전 대상 앱과 부하 ----
+  app:
+    build: ./app
+    depends_on: [pgbouncer]
+    environment:
+      DATABASE_URL: postgresql://chat_app:chat_app_pw@pgbouncer:6432/chat
+      S3_ENDPOINT: http://s3-src:8333
+      S3_ACCESS_KEY: chat-app
+      S3_SECRET_KEY: chat-app-secret
+    ports: ["8080:8080"]
+
+  writer:
+    build: ./writer
+    depends_on: [app]
+    environment: { APP_URL: "http://app:8080" }
+    ports: ["8090:8090"]
 
 volumes:
   pgbouncer-target:
