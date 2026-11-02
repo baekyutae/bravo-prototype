@@ -11,7 +11,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from . import workflow
+from . import agent, workflow
 from .events import bus
 from .state import EXCEPTIONS, FLOW, TransitionError
 
@@ -41,6 +41,10 @@ async def execute(request: Request, key: str | None, action: Callable[[], dict])
         except TransitionError as e:
             body, status = {"error": "transition_rejected", "detail": str(e),
                             "current": e.current, "target": e.target}, 409
+        except Exception as e:  # 단계 실행 중 예상하지 못한 오류: 기록하고 그대로 보고
+            plan_id = request.path_params.get("plan_id", "-")
+            bus.publish(plan_id, "error", f"{type(e).__name__}: {e}")
+            body, status = {"error": "step_failed", "detail": f"{type(e).__name__}: {e}"}, 500
         _idem[key] = (fingerprint, status, body)
         return JSONResponse(body, status_code=status)
 
@@ -60,10 +64,14 @@ class PlanIn(BaseModel):
 
 class ApprovalIn(BaseModel):
     approver: str = "operator"
+    # 승인 화면에 표시된 결속 값. 서버의 현재 값과 다르면 거부한다.
+    plan_id: str
+    proposal_digest: str
+    gate_id: str
 
 
 class FaultIn(BaseModel):
-    kind: str  # target_failure | destructive_tool
+    kind: str  # target_failure | destructive_tool | invalid_proposal
 
 
 @app.get("/")
@@ -73,7 +81,8 @@ def console():
 
 @app.get("/v1/meta")
 def meta():
-    return {"flow": FLOW, "exceptions": EXCEPTIONS, "current_plan_id": workflow.current_plan_id}
+    return {"flow": FLOW, "exceptions": EXCEPTIONS, "current_plan_id": workflow.current_plan_id,
+            "ai_mode": agent.MODE, "model": agent.MODEL}
 
 
 @app.post("/v1/plans")
@@ -106,7 +115,7 @@ _action("failback", lambda plan: workflow.failback(plan, "운영자 요청"))
 async def approvals(plan_id: str, body: ApprovalIn, request: Request,
                     idempotency_key: str | None = Header(None)):
     plan = get_plan(plan_id)
-    return await execute(request, idempotency_key, lambda: workflow.approve(plan, body.approver))
+    return await execute(request, idempotency_key, lambda: workflow.approve(plan, body.approver, body.model_dump()))
 
 
 @app.post("/v1/plans/{plan_id}/faults")

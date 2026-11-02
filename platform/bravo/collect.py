@@ -3,7 +3,7 @@
 import re
 from pathlib import Path
 
-from . import infra
+from . import agent, infra
 from .events import bus
 from .state import Plan
 
@@ -46,22 +46,62 @@ RULES = [
 ]
 
 
+KNOWN_SERVICES = {"s3", "sqs", "sns", "kms", "secretsmanager"}
+UNCLASSIFIED = "미분류"
+
+
 def analyze(plan: Plan) -> dict:
     found = []
     for path in sorted(Path(infra.WORKLOAD_DIR).rglob("*.py")):
         text = path.read_text()
+        lines = text.splitlines()
+
+        def item(pos: int, grade: str, desc: str) -> dict:
+            no = text.count("\n", 0, pos) + 1
+            return {"id": f"{path.name}:{no}", "file": path.name, "line": no,
+                    "code": lines[no - 1].strip(), "grade": grade, "desc": desc,
+                    "classified_by": "rule"}
+
         for pattern, grade, desc in RULES:
             m = re.search(pattern, text)  # 파일당 규칙별 첫 위치만 (여러 줄에 걸친 호출 포함)
             if m:
-                no = text.count("\n", 0, m.start()) + 1
-                found.append({"file": path.name, "line": no,
-                              "code": text.splitlines()[no - 1].strip(),
-                              "grade": grade, "desc": desc})
+                found.append(item(m.start(), grade, desc))
+        # 규칙에 없는 AWS 서비스 호출: 등급을 정하지 못한 애매한 항목
+        for m in re.finditer(r"boto3\.client\(\s*\"(\w+)\"", text):
+            if m.group(1) not in KNOWN_SERVICES:
+                it = item(m.start(), UNCLASSIFIED, f"AWS {m.group(1)} 호출 (규칙 없음)")
+                no = it["line"]
+                it["context"] = "\n".join(lines[max(0, no - 4):no + 3])
+                found.append(it)
+
+    ambiguous = [f for f in found if f["grade"] == UNCLASSIFIED]
+    if ambiguous:
+        _classify_with_ai(plan, ambiguous)
+
     by_grade = {}
     for f in found:
         by_grade[f["grade"]] = by_grade.get(f["grade"], 0) + 1
     bus.publish(plan.id, "step", f"의존성 {len(found)}건 탐지: {by_grade}", step="ANALYZE")
     return {"dependencies": found, "by_grade": by_grade}
+
+
+def _classify_with_ai(plan: Plan, items: list[dict]) -> None:
+    """설계 문서 FR-2: 탐지는 정적 분석, 애매한 분류만 AI가 한다. 결과는 사람이 확인할 제안이다."""
+    payload = [{"id": i["id"], "code": i["context"]} for i in items]
+    try:
+        answers = {a["id"]: a for a in agent.classify_dependencies(plan, payload)}
+    except agent.AgentError:
+        answers = {}
+    for i in items:
+        a = answers.get(i["id"])
+        if a and a["grade"] in agent.GRADES:  # 플랫폼 쪽 재검증
+            i.update(grade=a["grade"], reason=a["reason"], confidence=a["confidence"],
+                     classified_by="ai")
+            bus.publish(plan.id, "step", f"AI 분류 {i['id']} → {a['grade']} ({a['confidence']}): "
+                        f"{a['reason']}", step="ANALYZE")
+        else:
+            i.update(reason="AI 분류 실패 또는 형식 오류, 사람 확인 필요", classified_by="none")
+        i.pop("context", None)
 
 
 def baseline_proposal(plan: Plan) -> dict:

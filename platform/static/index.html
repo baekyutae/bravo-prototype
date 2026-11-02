@@ -44,6 +44,7 @@
            font-weight: 600; margin-right: 4px; vertical-align: 1px; }
   .b-stub { background: var(--line); color: var(--muted); }
   .b-sim { background: color-mix(in srgb, var(--sim) 18%, transparent); color: var(--sim); }
+  .b-ai { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
   .b-local { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
   .b-pass { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
   .b-block { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
@@ -66,6 +67,7 @@
 <header>
   <h1>Bravo Exit Console</h1>
   <span class="plan" id="planId">계획 없음</span>
+  <span class="plan" id="aiMode"></span>
   <span class="spacer"></span>
   <button id="newPlan">새 이전 계획</button>
 </header>
@@ -88,7 +90,8 @@
     <div class="grid">
       <div class="card"><h2>출발지 수집 · 의존성</h2><div id="inventory" class="placeholder">계획을 만들면 표시</div></div>
       <div class="card"><h2>원본 대조 게이트</h2><div id="gate" class="placeholder">게이트 실행 전</div></div>
-      <div class="card"><h2>AI 제안서 · 검증</h2><div id="proposal" class="placeholder">4단계에서 연결</div></div>
+      <div class="card"><h2>AI 제안서 · 검증</h2><div id="proposal" class="placeholder">게이트 BLOCK 뒤 "AI 보완 · 리허설"</div></div>
+      <div class="card"><h2>승인</h2><div id="approval" class="placeholder">게이트 PASS 뒤 표시</div></div>
       <div class="card"><h2>컷오버 · 영수증</h2><div id="cutover" class="placeholder">5단계에서 연결</div></div>
       <div class="card"><h2>단계 결과 (원본 데이터)</h2><pre id="data"></pre></div>
     </div>
@@ -106,7 +109,7 @@ const ACTIONS = [
   { group: "S1 · S2" },
   { id: "gate", label: "원본 대조 게이트 실행", path: "gate" },
   { id: "rehearsals", label: "AI 보완 · 리허설", path: "rehearsals" },
-  { id: "approvals", label: "승인", path: "approvals", body: { approver: "operator" } },
+  { id: "approvals", label: "승인 (결속 값 포함)", path: "approvals", body: () => approvalBody() },
   { group: "S3" },
   { id: "shift", label: "트래픽 전환 (SHIFT)", path: "shift" },
   { id: "cutover", label: "컷오버", path: "cutover" },
@@ -114,6 +117,7 @@ const ACTIONS = [
   { group: "S4 · 데모 주입" },
   { id: "fault", label: "목적지 장애 주입", path: "faults", body: { kind: "target_failure" }, danger: true },
   { id: "tool", label: "파괴적 명령 주입", path: "faults", body: { kind: "destructive_tool" }, danger: true },
+  { id: "badProposal", label: "잘못된 제안서 주입", path: "faults", body: { kind: "invalid_proposal" }, danger: true },
   { id: "failback", label: "수동 되돌리기", path: "failback", danger: true },
 ];
 
@@ -142,7 +146,7 @@ function renderActions() {
     if (a.id === next) b.classList.add("next");
     if (a.danger) b.classList.add("danger");
     b.disabled = !plan;
-    b.onclick = () => post(`/v1/plans/${plan.id}/${a.path}`, a.body || {});
+    b.onclick = () => post(`/v1/plans/${plan.id}/${a.path}`, typeof a.body === "function" ? a.body() : (a.body || {}));
     box.append(b);
   }
 }
@@ -165,7 +169,52 @@ function render() {
   $("planId").textContent = plan ? `${plan.id} · ${plan.state}` : "계획 없음";
   renderRail(); renderActions();
   $("data").textContent = plan ? JSON.stringify(plan.data, null, 2) : "";
-  renderInventory(); renderGate();
+  renderInventory(); renderGate(); renderProposal(); renderApproval();
+}
+
+function approvalBody() {
+  const r = plan?.data.approval_request || {};
+  return { approver: "operator", plan_id: r.plan_id, proposal_digest: r.proposal_digest, gate_id: r.gate_id };
+}
+
+const okMark = (v) => v ? '<span class="badge b-pass">OK</span>' : '<span class="badge b-block">FAIL</span>';
+
+function renderProposal() {
+  const d = plan?.data || {}, el = $("proposal");
+  const attempts = d.attempts || [], blocked = d.blocked || [];
+  if (!attempts.length && !blocked.length) { el.className = "placeholder"; el.textContent = '게이트 BLOCK 뒤 "AI 보완 · 리허설"'; return; }
+  el.className = "";
+  const rows = attempts.map((a, i) => `<tr><td>${a.injected ? '<span class="badge b-sim">주입</span>' : "AI #" + (i + 1)}</td>
+    <td class="mono">${escape(JSON.stringify(a.proposal.proposal))}<br>target=${escape(a.proposal.target.name)}</td>
+    <td>${a.violations.length ? '<span class="badge b-block">거부</span>' + a.violations.map(escape).join("<br>") : '<span class="badge b-pass">통과</span>'}</td></tr>`).join("");
+  const r = d.rehearsal && d.rehearsal.checks && d.rehearsal.applied ? d.rehearsal : null;
+  const reh = r ? `<div class="sub">리허설 버킷 검증</div>
+      <div>무인증 거부 ${okMark(r.checks.anonymous_denied)} 객체 보존 ${okMark(r.checks.object_intact)}</div>
+      <div class="sub">목적지 반영</div>
+      <div>무인증 HTTP <span class="mono">${r.applied.anonymous_http}</span> · 앱 자격 읽기 ${okMark(r.applied.app_read_ok)}</div>` : "";
+  const blk = blocked.map(b => `<div class="mono">${b.injected ? '<span class="badge b-sim">주입</span>' : ""}<span class="badge b-block">차단</span>${escape(b.tool)} ${escape(JSON.stringify(b.args))}<br>${escape(b.reason)}</div>`).join("");
+  const p = attempts.filter(a => !a.violations.length && !a.injected).pop();
+  el.innerHTML = `<div class="sub">제안서 검증 (스키마 → 린트)</div>
+    <table><tr><th></th><th>제안</th><th>결과</th></tr>${rows}</table>
+    ${p ? `<div class="sub">채택 제안 근거 (risk: ${p.proposal.risk})</div><div>${escape(p.proposal.rationale)}</div>` : ""}
+    ${reh}${blk ? '<div class="sub">도구 계층 차단 기록</div>' + blk : ""}`;
+}
+
+function renderApproval() {
+  const r = plan?.data.approval_request, a = plan?.data.approval, el = $("approval");
+  if (!r) { el.className = "placeholder"; el.textContent = "게이트 PASS 뒤 표시"; return; }
+  el.className = "";
+  const s = r.summary;
+  const list = (xs) => xs.map(x => `<li>${escape(x)}</li>`).join("");
+  const exp = new Date(r.expires_at * 1000).toLocaleTimeString("ko-KR", { hour12: false });
+  el.innerHTML = `
+    ${s ? `<div class="sub">AI 요약 (사람 확인용)</div><div>${escape(s.summary)}</div>
+      <div class="sub">변경</div><ul>${list(s.changes)}</ul><div class="sub">위험</div><ul>${list(s.risks)}</ul>`
+        : '<div class="placeholder">AI 요약 없음</div>'}
+    <div class="sub">결속 값 (코드가 표시 · 검증)</div>
+    <div class="mono">plan ${r.plan_id} · proposal ${r.proposal_digest} · gate ${r.gate_id} · 만료 ${exp}</div>
+    <div class="sub">상태</div>
+    <div>${a ? `<span class="badge b-pass">승인됨</span>${escape(a.approver)}` : "승인 대기"}</div>`;
 }
 
 const badge = (v) => `<span class="badge ${v === "PASS" ? "b-pass" : "b-block"}">${v}</span>`;
@@ -176,8 +225,12 @@ function renderInventory() {
   el.className = "";
   const ids = Object.entries(c.identities).map(([k, v]) => `<div class="mono">${k}: ${v.join(", ")}</div>`).join("");
   const sim = c.simulated_inventory.map(i => `${i.kind} <span class="mono">${i.id}</span>`).join(" · ");
-  const deps = (a?.dependencies || []).map(d =>
-    `<tr><td>${d.grade}</td><td class="mono">${d.file}:${d.line}</td><td>${escape(d.desc)}</td></tr>`).join("");
+  const deps = (a?.dependencies || []).map(d => {
+    const by = d.classified_by === "ai" ? `<span class="badge b-ai">AI · ${d.confidence}</span>`
+             : d.classified_by === "none" ? '<span class="badge b-block">사람 확인</span>' : "";
+    const why = d.reason ? `<div class="placeholder">${escape(d.reason)}</div>` : "";
+    return `<tr><td>${by}${d.grade}</td><td class="mono">${d.file}:${d.line}</td><td>${escape(d.desc)}${why}</td></tr>`;
+  }).join("");
   el.innerHTML = `
     <div class="sub">출발지 버킷 <span class="mono">${c.bucket}</span> 접근 주체</div>${ids}
     <div class="sub">출발지 DB: messages ${c.messages_rows}행 · 스키마 <span class="mono">${c.schema_hash.slice(0, 8)}</span></div>
@@ -238,6 +291,7 @@ $("newPlan").onclick = async () => {
 
 (async () => {
   meta = await (await fetch("/v1/meta")).json();
+  $("aiMode").textContent = `AI ${meta.ai_mode} · ${meta.model}`;
   if (meta.current_plan_id) { subscribe(meta.current_plan_id); await loadPlan(meta.current_plan_id); }
   else render();
 })();

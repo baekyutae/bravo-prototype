@@ -1,0 +1,46 @@
+[
+  {
+    "step": "translate",
+    "source": {
+      "type": "aws_s3_bucket_policy",
+      "id": "chat-attachments"
+    },
+    "target": {
+      "type": "seaweedfs_s3_identity",
+      "name": "chat_app"
+    },
+    "proposal": {
+      "anonymous": "deny",
+      "principal": "chat_app",
+      "actions": [
+        "Read",
+        "Write",
+        "List"
+      ]
+    },
+    "rationale": "AWS 원본은 익명 읽기를 거부하지만 SeaweedFS에는 anonymous 아이덴티티에 chat-attachments Read가 열려 있어 이를 제거(deny)해야 합니다. 첨부 객체 접근은 chat_app 전용 주체에 Read, Write, List만 부여해 원본과 같은 보호 수준을 재현합니다.",
+    "risk": "low"
+  },
+  {
+    "step": "translate",
+    "source": {
+      "type": "aws_s3_bucket_policy",
+      "id": "chat-attachments"
+    },
+    "target": {
+      "type": "seaweedfs_s3_identity",
+      "name": "chat-attachments"
+    },
+    "proposal": {
+      "anonymous": "deny",
+      "principal": "chat_app",
+      "actions": [
+        "Read",
+        "Write",
+        "List"
+      ]
+    },
+    "rationale": "출발지 AWS는 인증 없는 읽기를 거부하므로 목적지 SeaweedFS의 anonymous 아이덴티티에 부여된 chat-attachments Read 권한을 제거해 익명 접근을 차단해야 한다. 접근은 chat_app 주체에게만 chat-attachments 버킷에 대한 Read, Write, List 권한으로 한정한다.",
+    "risk": "low"
+  }
+]

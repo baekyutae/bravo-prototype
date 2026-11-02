@@ -13,7 +13,7 @@ x-pg: &pg
 
 x-s3: &s3
   image: chrislusf/seaweedfs:latest
-  command: ["server", "-dir=/data", "-s3", "-ip.bind=0.0.0.0", "-master.volumeSizeLimitMB=64", "-volume.max=5"]
+  command: ["server", "-dir=/data", "-s3", "-ip.bind=0.0.0.0", "-master.volumeSizeLimitMB=64", "-volume.max=50"]
   healthcheck:
     test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8888/ || exit 1"]
     interval: 3s
@@ -110,9 +110,11 @@ services:
     env_file: .env
     environment:
       WORKLOAD_DIR: /workload/app
+      AI_MODE: ${AI_MODE:-live}   # replay: 저장된 AI 응답 사용
     volumes:
       - pgbouncer-target:/pgbouncer-target
       - ./app:/workload/app:ro   # ANALYZE가 읽는 이전 대상 앱 소스
+      - ./platform/replay:/srv/replay   # AI 응답 기록 (replay 모드 입력)
     ports: ["8000:8000"]
 
 volumes:

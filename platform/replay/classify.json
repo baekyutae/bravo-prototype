@@ -1,0 +1,12 @@
+[
+  {
+    "items": [
+      {
+        "id": "main.py:117",
+        "grade": "코드 수정",
+        "reason": "CloudWatch put_metric_data는 AWS 전용 API라 엔드포인트만 바꿔서는 온프렘(RKE2)에서 동작하지 않으며, 호환되는 대체 엔드포인트도 없습니다. Prometheus 클라이언트(Counter 등)로 메트릭을 노출하도록 애플리케이션 코드를 바꿔야 합니다.",
+        "confidence": "high"
+      }
+    ]
+  }
+]

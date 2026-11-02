@@ -110,3 +110,12 @@ def list_messages(after: int = 0, limit: int = 50):
         {"id": r[0], "body": r[1], "attachment_key": r[2], "created_at": r[3].isoformat()}
         for r in rows
     ]
+
+
+def publish_message_metric(count: int) -> None:
+    """운영 지표 전송 (데모에서는 호출하지 않음). 정적 규칙이 등급을 정하지 못하는 애매한 의존성 예시."""
+    cloudwatch = boto3.client("cloudwatch")
+    cloudwatch.put_metric_data(
+        Namespace="Chat",
+        MetricData=[{"MetricName": "MessagesCreated", "Value": count, "Unit": "Count"}],
+    )

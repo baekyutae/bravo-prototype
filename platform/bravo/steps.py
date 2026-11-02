@@ -16,18 +16,6 @@ def _stub(plan: Plan, step: str, message: str, **data) -> dict:
     return {"stub": True, **data}
 
 
-def ai_proposal(plan: Plan) -> dict:
-    return _stub(plan, "PROPOSE", "AI 제안서 생성", source="ai")
-
-
-def rehearse(plan: Plan, proposal: dict) -> dict:
-    return _stub(plan, "REHEARSE", "리허설 검증", ok=True)
-
-
-def approve(plan: Plan, approver: str) -> dict:
-    return _stub(plan, "AWAIT_APPROVAL", f"{approver} 승인", approver=approver)
-
-
 def shift(plan: Plan) -> dict:
     for w in (10, 50, 100):
         bus.publish(plan.id, "step", f"[SIMULATED] 목적지 가중치 {w}%", step="SHIFT",
@@ -44,7 +32,3 @@ def cutover(plan: Plan) -> dict:
 def failback(plan: Plan) -> dict:
     time.sleep(1)
     return {**_stub(plan, "FAILBACK", "되돌리기"), "outcome": "COMMITTED"}
-
-
-def destructive_tool_attempt(plan: Plan) -> dict:
-    return _stub(plan, "REHEARSE", "파괴적 명령 차단", blocked=True)
