@@ -5,6 +5,7 @@
 
 import time
 
+from . import executor
 from .collect import analyze, apply_baseline, baseline_proposal, collect  # noqa: F401  (3단계)
 from .events import bus
 from .gate import run as gate  # noqa: F401  (3단계)
@@ -25,8 +26,11 @@ def shift(plan: Plan) -> dict:
 
 
 def cutover(plan: Plan) -> dict:
-    time.sleep(1)
-    return {**_stub(plan, "CUTOVER", "컷오버"), "outcome": "COMMITTED"}
+    result = executor.run(plan, "cutover")
+    if result["outcome"] == "COMMITTED":
+        time.sleep(2)  # 진행 중이던 writer 요청이 ACK를 받을 시간
+        result["reconcile"] = executor.reconcile(plan)
+    return result
 
 
 def failback(plan: Plan) -> dict:

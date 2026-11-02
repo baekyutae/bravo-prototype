@@ -626,13 +626,36 @@ function panelApproval() {
     </div>`;
 }
 
+function execView(r, title) {
+  const steps = r.steps.map(s => `<tr><td class="mono">${s.no}</td><td>${esc(s.name)}</td>
+    <td>${s.ok ? '<span class="badge b-good">✓</span>' : '<span class="badge b-crit">✕</span>'}</td>
+    <td class="mono" style="text-align:right">${s.ms}ms</td><td class="evidence">${esc(JSON.stringify(s.detail))}</td></tr>`).join("");
+  const rc = r.receipt;
+  const rcRows = rc ? Object.keys(rc.from).map(tb => {
+    const a = rc.from[tb], b = rc.to[tb], same = JSON.stringify(a) === JSON.stringify(b);
+    return `<tr><td class="mono">${tb}</td><td class="mono">${fmt(a.rows)} / ${fmt(b.rows)}</td><td class="mono">${a.pk_hash}<br>${b.pk_hash}</td>
+      <td class="mono">${a.content_hash}<br>${b.content_hash}</td><td>${same ? '<span class="badge b-good">✓ MATCH</span>' : '<span class="badge b-crit">✕ MISMATCH</span>'}</td></tr>`;
+  }).join("") : "";
+  const seqs = rc ? Object.entries(rc.sequences).map(([n, s]) => `${n}: ${fmt(s.to_before)} → <b>${fmt(s.to_set)}</b>`).join(" · ") : "";
+  const rec = r.reconcile;
+  const outcomeCls = r.outcome === "COMMITTED" ? "b-good" : r.outcome === "ABORT_PRE_WRITE" ? "b-warn" : "b-crit";
+  return `<div class="sec">${title}</div>
+    <div class="verdict-row"><span class="badge ${outcomeCls}">${r.outcome}</span><span class="mono">${esc(r.from)} → ${esc(r.to)} · epoch ${r.epoch}</span><span class="spacer"></span>
+      ${r.write_pause_ms != null ? `<span class="muted" style="font-size:12px">쓰기 정지</span><span class="verdict-big">${fmt(r.write_pause_ms)}<small style="font-size:12px;font-weight:500"> ms</small></span><span class="badge b-local">LOCAL</span>` : ""}</div>
+    <table><tr><th>#</th><th>단계</th><th></th><th style="text-align:right">시간</th><th>근거</th></tr>${steps}</table>
+    ${rc ? `<div class="sec">무결성 영수증 (원본 / 대상)</div><table><tr><th>테이블</th><th>행</th><th>PK 해시</th><th>내용 해시</th><th></th></tr>${rcRows}</table>
+      <div class="reason">시퀀스 보정(올리기만): ${seqs}</div>` : ""}
+    ${rec ? `<div class="sec">writer 대조 · ${esc(rec.checked_in)}</div><div class="chain">
+      <span class="badge b-neutral">ACK ${fmt(rec.acked)}</span><span class="badge b-neutral">DB 확인 ${fmt(rec.found)}</span>
+      ${okBadge(rec.lost === 0, `유실 ${rec.lost}`)}${okBadge(rec.duplicated === 0, `중복 ${rec.duplicated}`)}</div>` : ""}`;
+}
+
 function panelCutover() {
   const d = plan.data;
   if (!d.shift && !d.cutover && !d.failback) return `<div class="empty">승인 뒤 SHIFT · 컷오버 결과가 표시됩니다.</div>`;
-  const pre = (o) => `<pre class="mono" style="white-space:pre-wrap;margin:0">${esc(JSON.stringify(o, null, 2))}</pre>`;
   return `${d.shift ? `<div class="sec">트래픽 전환 <span class="badge b-sim">SIMULATED</span></div><div>Edge 가중치 온프렘 ${d.shift.weight}%</div>` : ""}
-    ${d.cutover ? `<div class="sec">컷오버</div>${pre(d.cutover)}` : ""}
-    ${d.failback ? `<div class="sec">되돌리기</div>${pre(d.failback)}` : ""}`;
+    ${d.cutover?.steps ? execView(d.cutover, "컷오버 · Executor 8단계 (LLM 미사용)") : ""}
+    ${d.failback?.steps ? execView(d.failback, "되돌리기 · 같은 순서를 반대 방향으로") : d.failback ? `<div class="sec">되돌리기</div><pre class="mono">${esc(JSON.stringify(d.failback, null, 2))}</pre>` : ""}`;
 }
 
 /* ===================== 이벤트 ===================== */
